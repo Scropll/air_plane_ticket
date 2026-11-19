@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wide-body Cabin</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body data-mode="exterior">
+  <div id="app"></div>
+
+  <aside class="panel" aria-label="Cabin controls">
+    <header>
+      <h1>Wide-body cabin</h1>
+      <p class="sub"><span id="total">0</span> seats · every one an instance · metres</p>
+    </header>
+
+    <div class="views" role="group" aria-label="View">
+      <button type="button" data-view="exterior" aria-pressed="true">Exterior</button>
+      <button type="button" data-view="cabin" aria-pressed="false">Cabin</button>
+      <button type="button" data-view="seat" aria-pressed="false">Seat view</button>
+    </div>
+
+    <form id="finder" autocomplete="off">
+      <label for="seat-query">Find a seat</label>
+      <div class="row">
+        <input id="seat-query" placeholder="e.g. 1A, 2E, 12D, 34K" maxlength="4" spellcheck="false" />
+        <button type="submit">Go</button>
+      </div>
+      <p id="finder-msg" role="status"></p>
+    </form>
+
+    <ul id="legend"></ul>
+    <p class="hint">Cabin view: hover a seat to identify it, click to select, double-click to sit.</p>
+  </aside>
+
+  <section id="seat-info" class="card" hidden aria-live="polite">
+    <button type="button" id="close-info" aria-label="Close">×</button>
+    <div class="si-head">
+      <span class="si-id">—</span>
+      <span class="si-class">—</span>
+    </div>
+    <dl>
+      <dt>Row</dt><dd class="si-row"></dd>
+      <dt>Letter</dt><dd class="si-letter"></dd>
+      <dt>Position</dt><dd class="si-pos"></dd>
+      <dt>Zone</dt><dd class="si-zone"></dd>
+      <dt>Space</dt><dd class="si-pitch"></dd>
+      <dt>Width</dt><dd class="si-width"></dd>
+      <dt>Station</dt><dd class="si-station"></dd>
+      <dt>Instance</dt><dd class="si-instance mono"></dd>
+    </dl>
+    <button type="button" id="sit" class="primary">Sit here</button>
+  </section>
+
+  <div id="tooltip" hidden></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
