@@ -22,7 +22,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #a9c3e0; }
 h1 { font-size: 17px; margin: 0; letter-spacing: 0.01em; }
 .sub { margin: 2px 0 12px; color: var(--muted); font-size: 12.5px; }
 
-.views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px; background: rgba(21, 32, 43, 0.06); border-radius: 10px; }
+.views { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 3px; background: rgba(21, 32, 43, 0.06); border-radius: 10px; }
 .views button {
   border: 0; background: transparent; padding: 7px 4px; border-radius: 8px; font: inherit; font-size: 13px;
   color: var(--ink); cursor: pointer;
@@ -92,3 +92,9 @@ button[type="submit"], .primary {
   .card { top: 16px; left: 16px; right: 16px; width: auto; }
   .card dl { grid-template-columns: auto 1fr auto 1fr; }
 }
+
+/* top-down view: keep the frame clear */
+body[data-mode="photo"] .panel > :not(.views) { display: none; }
+body[data-mode="photo"] .panel { padding: 6px; width: 340px; }
+body[data-mode="photo"] #seat-info, body[data-mode="photo"] #tooltip { display: none; }
+body.clean .panel, body.clean #seat-info, body.clean #tooltip, body.clean .labels > * { display: none !important; }

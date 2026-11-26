@@ -2,10 +2,14 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildAircraft } from './aircraft.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { buildAircraft, buildGlassRoof } from './aircraft.js';
 import { buildCabin, CLASSES } from './cabin.js';
 import { CloudSea } from './clouds.js';
-import { FLOOR_Y, CABIN_Z0, CABIN_Z1, CUT_HEIGHT } from './dims.js';
+import { FLOOR_Y, CABIN_Z0, CABIN_Z1, CUT_HEIGHT, LENGTH } from './dims.js';
 
 // ------------------------------------------------------------------ renderer
 const app = document.getElementById('app');
@@ -86,7 +90,23 @@ for (const m of [...airframe.clipMaterials, ...cabin.clipMaterials]) {
   m.clipShadows = true;
 }
 
+// clear glass roof over the cutaway, shown in the top-down view
+const glassRoof = buildGlassRoof(CABIN_Z0, CABIN_Z1, FLOOR_Y + CUT_HEIGHT);
+glassRoof.visible = false;
+aircraft.add(glassRoof);
+
 const clouds = new CloudSea(scene, sunDir);
+
+// ambient occlusion for the top-down view (contact shadows between seats)
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const gtao = new GTAOPass(scene, camera, window.innerWidth, window.innerHeight);
+gtao.normalMaterial.clippingPlanes = clipPlanes;
+gtao.normalMaterial.clipIntersection = true;
+gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.5, thickness: 2, scale: 1.2, samples: 16 });
+gtao.blendIntensity = 0.9;
+composer.addPass(gtao);
+composer.addPass(new OutputPass());
 
 // ------------------------------------------------------------------ labels
 const labelObjects = [];
@@ -132,19 +152,40 @@ function setMode(m, opts = {}) {
   mode = m;
   document.body.dataset.mode = m;
   for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === m));
-  cutTarget = m === 'cabin' ? FLOOR_Y + CUT_HEIGHT : 1e4;
-  if (m === 'cabin' && cutCurrent > 30) cutCurrent = 8;
+  const cut = m === 'cabin' || m === 'photo';
+  cutTarget = cut ? FLOOR_Y + CUT_HEIGHT : 1e4;
+  if (cut && cutCurrent > 30) cutCurrent = 8;
+  if (m === 'photo') cutCurrent = cutTarget;
+  glassRoof.visible = m === 'photo';
+  clouds.setAerial(m === 'photo');
+  camera.near = m === 'photo' ? 20 : 0.05;
   for (const o of labelObjects) o.visible = m === 'cabin';
+  controls.enabled = m !== 'photo';
+  camera.up.set(0, 1, 0);
+  if (m === 'photo') { tween = null; framePhoto(); }
   controls.minDistance = m === 'seat' ? 0.01 : 4;
   controls.enablePan = m !== 'seat';
   controls.rotateSpeed = m === 'seat' ? -0.35 : 1;
   controls.enableZoom = m !== 'seat';
-  camera.fov = m === 'seat' ? 68 : 42;
+  camera.fov = m === 'seat' ? 68 : m === 'photo' ? 14 : 42;
   camera.updateProjectionMatrix();
+  if (m === 'photo') framePhoto();
   if (!opts.keepCamera) {
     if (m === 'exterior') flyTo(VIEWS.exterior.pos, VIEWS.exterior.target, 1.8);
     if (m === 'cabin') flyTo(VIEWS.cabin.pos, VIEWS.cabin.target, 1.8);
   }
+}
+
+/** Straight-down aerial framing, nose at the top, whole aircraft in frame. */
+function framePhoto() {
+  const zc = LENGTH / 2;
+  const halfLen = LENGTH / 2 + 1.5;
+  const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
+  const dist = halfLen / Math.tan(halfFov);
+  camera.up.set(0, 0, -1);
+  camera.position.set(0, dist, zc);
+  camera.lookAt(0, 0, zc);
+  controls.target.set(0, 0, zc);
 }
 
 // ------------------------------------------------------------------ seats API
@@ -228,7 +269,7 @@ function renderInfo(seat) {
   info.querySelector('.si-pos').textContent = pos;
   info.querySelector('.si-zone').textContent = seat.zone;
   info.querySelector('.si-pitch').textContent = seat.cabin === 'First'
-    ? `${seat.pitch.toFixed(2)} m suite` : seat.cabin === 'Residence' ? 'private 3-room suite' : `${seat.pitch.toFixed(2)} m pitch`;
+    ? `${seat.pitch.toFixed(2)} m suite` : seat.cabin === 'Business' ? `${seat.pitch.toFixed(2)} m flat-bed pod` : `${seat.pitch.toFixed(2)} m pitch`;
   info.querySelector('.si-width').textContent = `${seat.width.toFixed(3)} m`;
   info.querySelector('.si-station').textContent = `${seat.floor.z.toFixed(2)} m from nose`;
   info.querySelector('.si-instance').textContent = `${seat.mesh.name} #${seat.instanceId}`;
@@ -240,7 +281,7 @@ const counts = window.cabin.summary();
 for (const [k, v] of Object.entries(CLASSES)) {
   const li = document.createElement('li');
   li.style.setProperty('--accent', v.accent);
-  const layout = { Residence: 'closed 3-room suite', First: '1-1-1 closed suites', Premium: '2-3-2', Economy: '3-4-3' }[k];
+  const layout = v.layout;
   li.innerHTML = `<span class="swatch"></span><span class="lg-name">${v.label}</span><span class="lg-meta">${layout}</span><span class="lg-count">${counts[k]}</span>`;
   li.addEventListener('click', () => {
     const first = seats.find((s) => s.cabin === k);
@@ -270,7 +311,7 @@ form.addEventListener('submit', (e) => {
   e.preventDefault();
   const s = findSeat(input.value);
   if (s) { msg.textContent = ''; selectSeat(s); }
-  else msg.textContent = `No seat “${input.value.trim()}”. Try 1A, 2E, 12D or 34K.`;
+  else msg.textContent = `No seat “${input.value.trim()}”. Try 1A, 7E, 26D or 34K.`;
 });
 
 // ------------------------------------------------------------------ picking
@@ -339,6 +380,7 @@ function frame() {
   // gentle flight motion outside; perfectly still in the cabin so the
   // cutaway and the seat view stay steady
   swayAmt += ((mode === 'exterior' ? 1 : 0) - swayAmt) * Math.min(1, dt * 2);
+  if (mode === 'photo') swayAmt = 0;
   aircraft.rotation.z = Math.sin(elapsed * 0.31) * 0.012 * swayAmt;
   aircraft.rotation.x = Math.sin(elapsed * 0.23 + 1) * 0.006 * swayAmt;
   aircraft.position.y = Math.sin(elapsed * 0.4) * 0.35 * swayAmt;
@@ -361,15 +403,16 @@ function frame() {
     controls.target.lerpVectors(tween.t0, tween.t1, k);
     if (tween.t >= 1) tween = null;
   }
-  controls.update();
+  if (mode !== 'photo') controls.update();
 
   // the sun's shadow camera tracks the aircraft
-  const c = new THREE.Vector3(0, 0, 33);
+  const c = new THREE.Vector3(0, 0, LENGTH / 2);
   sun.position.copy(c).addScaledVector(sunDir, 120);
   sun.target.position.copy(c);
 
   clouds.update(dt, camera, bob);
-  renderer.render(scene, camera);
+  if (mode === 'photo') composer.render(dt);
+  else renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
@@ -379,10 +422,13 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  if (mode === 'photo') framePhoto();
 });
 
 setMode('exterior', { keepCamera: true });
 const deep = new URLSearchParams(location.search);
+if (deep.has('clean')) document.body.classList.add('clean');
 if (deep.get('view')) setMode(deep.get('view'));
 if (deep.get('seat')) {
   const s = findSeat(deep.get('seat'));

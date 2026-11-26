@@ -150,6 +150,18 @@ export class CloudSea {
     scene.add(this.group);
   }
 
+  /** Finer, brighter cloud tops for the straight-down aerial view. */
+  setAerial(on) {
+    for (const l of this.layers) {
+      const u = l.mat.uniforms;
+      if (!l.base) l.base = { scale: u.uScale.value, cover: u.uCover.value, bright: u.uBright.value };
+      u.uScale.value = l.base.scale * (on ? 14 : 1);
+      u.uCover.value = l.base.cover - (on ? 0.08 : 0);
+      u.uBright.value = l.base.bright * (on ? 1.12 : 1);
+    }
+    for (const w of this.wisps) w.visible = !on;
+  }
+
   resetWisp(s, initial) {
     const side = Math.random() < 0.5 ? -1 : 1;
     s.position.set(

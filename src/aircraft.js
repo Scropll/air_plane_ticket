@@ -55,7 +55,7 @@ export function buildAircraft() {
   // belly fairing (wing-to-body)
   const belly = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), white);
   belly.scale.set(2.9, 1.15, 12.5);
-  belly.position.set(0, -2.55, 34.5);
+  belly.position.set(0, -2.55, 36.5);
   group.add(belly);
 
   // ---------------------------------------------------------- flight-deck glass
@@ -80,7 +80,7 @@ export function buildAircraft() {
   const winGeom = new THREE.ShapeGeometry(winShape, 6);
   const doorZs = LAYOUT.doors.map((d) => d.z);
   const winPositions = [];
-  for (let z = 8.0; z < 58.4; z += 0.535) {
+  for (let z = 7.6; z < 65.6; z += 0.535) {
     if (doorZs.some((dz) => Math.abs(dz - z) < 0.85)) continue;
     winPositions.push(z);
   }
@@ -150,7 +150,7 @@ export function buildAircraft() {
   }
 
   // ------------------------------------------------------------------- wings
-  const wingRootLE = 28.0;
+  const wingRootLE = 29.5;
   const sweep = Math.tan(31.5 * DEG);
   const dihedral = Math.tan(6 * DEG);
   const wingY = -1.95;
@@ -166,8 +166,8 @@ export function buildAircraft() {
     wingSec(3.0, 12.4, 0.14),
     wingSec(11.0, 7.4, 0.115),
     wingSec(29.0, 2.7, 0.095),
-    wingSec(31.2, 1.6, 0.09, 1.4),   // raked tip
-    wingSec(32.2, 0.7, 0.09, 2.6),
+    wingSec(31.4, 1.6, 0.09, 1.4),   // raked tip (64.8 m span)
+    wingSec(32.4, 0.7, 0.09, 2.6),
   ];
   const wingGeom = loft(wingSections, 28);
   const wingR = new THREE.Mesh(wingGeom, wingMat);
@@ -209,7 +209,7 @@ export function buildAircraft() {
 
   // ----------------------------------------------------------------- empennage
   // horizontal stabiliser
-  const hsRootLE = 60.6, hsY = 0.85;
+  const hsRootLE = 64.0, hsY = 0.7;
   const hsSweep = Math.tan(35 * DEG), hsDih = Math.tan(7 * DEG);
   const hs = (x, c, t) => ({
     o: new THREE.Vector3(x, hsY + x * hsDih, hsRootLE + x * hsSweep),
@@ -222,7 +222,7 @@ export function buildAircraft() {
   group.add(hsR, hsL);
 
   // vertical fin
-  const finRootLE = 59.6, finY = 2.45, finSweep = Math.tan(41 * DEG);
+  const finRootLE = 62.5, finY = 2.5, finSweep = Math.tan(41 * DEG);
   const vf = (h, c, t) => ({
     o: new THREE.Vector3(0, finY + h, finRootLE + h * finSweep),
     c, t, chordDir: new THREE.Vector3(0, 0, 1), thickDir: new THREE.Vector3(1, 0, 0), camber: 0,
@@ -233,8 +233,8 @@ export function buildAircraft() {
   group.add(fin);
   // dorsal fillet
   const dorsal = loft([
-    { o: new THREE.Vector3(0, 2.6, 55.0), c: 5.2, t: 0.12, chordDir: new THREE.Vector3(0, 0, 1), thickDir: new THREE.Vector3(1, 0, 0), camber: 0 },
-    { o: new THREE.Vector3(0, 3.3, 59.2), c: 1.6, t: 0.25, chordDir: new THREE.Vector3(0, 0, 1), thickDir: new THREE.Vector3(1, 0, 0), camber: 0 },
+    { o: new THREE.Vector3(0, 2.75, 60.4), c: 3.4, t: 0.12, chordDir: new THREE.Vector3(0, 0, 1), thickDir: new THREE.Vector3(1, 0, 0), camber: 0 },
+    { o: new THREE.Vector3(0, 3.3, 62.0), c: 1.6, t: 0.25, chordDir: new THREE.Vector3(0, 0, 1), thickDir: new THREE.Vector3(1, 0, 0), camber: 0 },
   ], 12);
   group.add(new THREE.Mesh(dorsal, tailMat));
 
@@ -249,15 +249,15 @@ export function buildAircraft() {
     group.add(m);
     lights.push(m);
   };
-  const tipX = 32.2;
+  const tipX = 32.4;
   const tipZ = wingRootLE + tipX * sweep + 2.6;
   const tipY = wingY + tipX * dihedral;
   mkLight(0xff2020, new THREE.Vector3(-tipX, tipY, tipZ + 0.1), null);    // port = red
   mkLight(0x20ff60, new THREE.Vector3(tipX, tipY, tipZ + 0.1), null);     // starboard = green
   mkLight(0xffffff, new THREE.Vector3(-tipX, tipY, tipZ + 0.6), 'strobe');
   mkLight(0xffffff, new THREE.Vector3(tipX, tipY, tipZ + 0.6), 'strobe');
-  mkLight(0xff3010, new THREE.Vector3(0, RADIUS + 0.08, 30), 'beacon');
-  mkLight(0xff3010, new THREE.Vector3(0, -RADIUS - 0.12, 26), 'beacon');
+  mkLight(0xff3010, new THREE.Vector3(0, RADIUS + 0.08, 32), 'beacon');
+  mkLight(0xff3010, new THREE.Vector3(0, -RADIUS - 0.12, 28), 'beacon');
   mkLight(0xffffff, new THREE.Vector3(0, tail.yc, LENGTH + 0.5), 'strobe');
 
   group.traverse((o) => { if (o.isMesh) o.receiveShadow = o !== fuselage && o !== belly && o !== windows; });
@@ -382,4 +382,49 @@ function roundedRect(w, h, r) {
   s.lineTo(x, y + r);
   s.quadraticCurveTo(x, y, x + r, y);
   return s;
+}
+
+/**
+ * Clear glass shell that replaces the fuselage crown over the cutaway, so the
+ * cabin reads as if seen through a glass roof. It only draws above the cut.
+ */
+export function buildGlassRoof(z0, z1, cutY) {
+  const zs = [];
+  for (let z = z0; z <= z1 + 1e-6; z += 0.25) zs.push(z);
+  const geom = ringSurface(zs, 96, (z) => section(z), 0.01);
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    metalness: 0,
+    roughness: 0.02,
+    transparent: true,
+    opacity: 0.035,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.02,
+    envMapIntensity: 0.6,
+    specularIntensity: 1,
+    depthWrite: false,
+  });
+  mat.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -cutY)]; // keep y > cut
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.name = 'glass-roof';
+  mesh.renderOrder = 5;
+
+  // a slim white sill where the glass meets the cut skin, both sides
+  const sillMat = new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.35 });
+  const group = new THREE.Group();
+  group.add(mesh);
+  for (const side of [-1, 1]) {
+    const pts = zs.map((z) => {
+      const { r, yc } = section(z);
+      const dy = cutY - yc;
+      const x = dy * dy < r * r ? Math.sqrt(r * r - dy * dy) : 0;
+      return new THREE.Vector3(side * (x - 0.07), cutY + 0.01, z);
+    });
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const sill = new THREE.Mesh(new THREE.TubeGeometry(curve, zs.length, 0.06, 6, false), sillMat);
+    sill.castShadow = true;
+    group.add(sill);
+  }
+  group.name = 'glass-roof';
+  return group;
 }

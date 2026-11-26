@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Wide-body Cabin</title>
+  <title>777-300ER Cabin</title>
   <link rel="stylesheet" href="style.css" />
   <script type="importmap">
     {
@@ -19,20 +19,21 @@
 
   <aside class="panel" aria-label="Cabin controls">
     <header>
-      <h1>Wide-body cabin</h1>
+      <h1>777-300ER cabin</h1>
       <p class="sub"><span id="total">0</span> seats · every one an instance · metres</p>
     </header>
 
     <div class="views" role="group" aria-label="View">
       <button type="button" data-view="exterior" aria-pressed="true">Exterior</button>
       <button type="button" data-view="cabin" aria-pressed="false">Cabin</button>
-      <button type="button" data-view="seat" aria-pressed="false">Seat view</button>
+      <button type="button" data-view="photo" aria-pressed="false">Top-down</button>
+      <button type="button" data-view="seat" aria-pressed="false">Seat</button>
     </div>
 
     <form id="finder" autocomplete="off">
       <label for="seat-query">Find a seat</label>
       <div class="row">
-        <input id="seat-query" placeholder="e.g. 1A, 2E, 12D, 34K" maxlength="4" spellcheck="false" />
+        <input id="seat-query" placeholder="e.g. 1A, 7E, 26D, 34K" maxlength="4" spellcheck="false" />
         <button type="submit">Go</button>
       </div>
       <p id="finder-msg" role="status"></p>
