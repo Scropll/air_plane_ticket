@@ -7,6 +7,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { buildAircraft, buildGlassRoof } from './aircraft.js';
 import { buildCabin, CLASSES } from './cabin.js';
 import { CloudSea } from './clouds.js';
@@ -56,7 +57,8 @@ envScene.add(envSky);
 const envFloor = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ color: 0xd8dfe8, side: THREE.DoubleSide }));
 envFloor.rotation.x = -Math.PI / 2; envFloor.position.y = -60;
 envScene.add(envFloor);
-scene.environment = pmrem.fromScene(envScene, 0.02).texture;
+let envRT = pmrem.fromScene(envScene, 0.02);
+scene.environment = envRT.texture;
 scene.environmentIntensity = 0.9;
 
 const sun = new THREE.DirectionalLight(0xfff4e6, 3.2);
@@ -67,13 +69,14 @@ sc.left = -42; sc.right = 42; sc.top = 42; sc.bottom = -42; sc.near = 1; sc.far 
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.025;
 scene.add(sun, sun.target);
-scene.add(new THREE.HemisphereLight(0xcfe0ff, 0xe9edf2, 0.55));
+const hemi = new THREE.HemisphereLight(0xcfe0ff, 0xe9edf2, 0.55);
+scene.add(hemi);
 
 // ------------------------------------------------------------------ aircraft
 const aircraft = new THREE.Group();
 aircraft.name = 'aircraft';
 scene.add(aircraft);
-const airframe = buildAircraft();
+const airframe = buildAircraft({ livery: new URLSearchParams(location.search).get('livery') || 'ana' });
 const cabin = buildCabin();
 aircraft.add(airframe.group, cabin.group);
 
@@ -107,6 +110,9 @@ gtao.normalMaterial.clipIntersection = true;
 gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.5, thickness: 2, scale: 1.2, samples: 16 });
 gtao.blendIntensity = 0.9;
 composer.addPass(gtao);
+// glow on the brightest lights (windows, cabin lamps, nav lights); off by day
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0, 0.6, 0.7);
+composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
 // camera finish for the aerial view: slight lens fringing, vignette, a gentle
@@ -184,15 +190,15 @@ function setMode(m, opts = {}) {
   mode = m;
   document.body.dataset.mode = m;
   for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === m));
-  const cut = m === 'cabin' || m === 'photo';
+  const cut = m === 'cabin' || m === 'photo' || m === 'film';
   cutTarget = cut ? FLOOR_Y + CUT_HEIGHT : 1e4;
   if (cut && cutCurrent > 30) cutCurrent = 8;
   if (m === 'photo') cutCurrent = cutTarget;
-  glassRoof.visible = m === 'photo';
-  clouds.setAerial(m === 'photo');
-  camera.near = m === 'photo' ? 20 : 0.05;
+  glassRoof.visible = m === 'photo' || m === 'film';
+  clouds.setAerial(m === 'photo' ? true : m === 'film' ? 4 : false);
+  camera.near = m === 'photo' ? 20 : m === 'film' ? 0.1 : 0.05;
   for (const o of labelObjects) o.visible = m === 'cabin';
-  controls.enabled = m !== 'photo';
+  controls.enabled = m !== 'photo' && m !== 'film';
   camera.up.set(0, 1, 0);
   if (m === 'photo') { tween = null; framePhoto(); }
   controls.minDistance = m === 'seat' ? 0.01 : 4;
@@ -400,19 +406,111 @@ labelRenderer.domElement.addEventListener('dblclick', (ev) => {
   if (s) sitIn(s);
 });
 
+// ------------------------------------------------------------------ dusk look
+// Blue hour: sun just above the horizon, orange sky low and deep blue above,
+// clouds lit pink and orange, the cabin glowing warm through the glass.
+let look = 'day';
+const cabinLamps = [];
+function applyDusk() {
+  look = 'dusk';
+  sunDir.set(-0.3, 0.03, 0.95).normalize();
+  su.turbidity.value = 9;
+  su.rayleigh.value = 3.6;
+  su.mieCoefficient.value = 0.008;
+  su.mieDirectionalG.value = 0.92;
+  su.sunPosition.value.copy(sunDir);
+  const eu = envSky.material.uniforms;
+  for (const k of ['turbidity', 'rayleigh', 'mieCoefficient', 'mieDirectionalG']) eu[k].value = su[k].value;
+  eu.sunPosition.value.copy(sunDir);
+  envFloor.material.color.set(0x4c4560);
+  envRT.dispose();
+  envRT = pmrem.fromScene(envScene, 0.02);
+  scene.environment = envRT.texture;
+  scene.environmentIntensity = 0.7;
+  renderer.toneMappingExposure = 0.5;
+
+  sun.color.set(0xffa25e);
+  sun.intensity = 2.4;
+  hemi.color.set(0x5d77b0);
+  hemi.groundColor.set(0x4a3f58);
+  hemi.intensity = 0.5;
+
+  clouds.setPalette({
+    lit: new THREE.Color(1.0, 0.56, 0.38),
+    shade: new THREE.Color(0.15, 0.18, 0.32),
+    haze: new THREE.Color(0.62, 0.42, 0.42),
+    bright: 0.42,
+    sunDir,
+  });
+
+  // warm cabin light: a row of lamps along the cabin, glowing windows
+  for (let z = 9; z <= 63; z += 6) {
+    const l = new THREE.PointLight(0xffb870, 22, 9, 1.6);
+    l.position.set(0, FLOOR_Y + 1.75, z);
+    aircraft.add(l);
+    cabinLamps.push(l);
+  }
+  const glass = airframe.clipMaterials[1];
+  glass.emissive = new THREE.Color(0xffb066);
+  glass.emissiveIntensity = 3.2;
+  cabin.group.traverse((o) => {
+    if (o.isMesh && o.material?.isMeshBasicMaterial && o.material.color.getHex() === 0xa9c0ff) o.material.color.set(0xffc27a);
+  });
+  bloom.strength = 0.45;
+  bloom.threshold = 1.6;
+  bloom.radius = 0.35;
+}
+
+// ------------------------------------------------------------------ film
+// One continuous drone-style shot (8 s): wide on the airliner against the
+// dusk sky, push in over the glowing First and Business cabins, then rise in
+// a turning diagonal to the straight-down view.
+const FILM = { duration: 8, fps: 24 };
+const filmPos = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-62, -6, 4),
+  new THREE.Vector3(-13, 4.6, 12.5),
+  new THREE.Vector3(-4.4, 2.5, 17.0),
+  new THREE.Vector3(-11, 22, 25),
+  new THREE.Vector3(0, 101, LENGTH / 2),
+]);
+const filmTgt = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(0, -0.5, 34),
+  new THREE.Vector3(0, -0.8, 19),
+  new THREE.Vector3(0.6, -1.0, 21.5),
+  new THREE.Vector3(0, -1, 31),
+  new THREE.Vector3(0, 0, LENGTH / 2),
+]);
+const filmFov = [38, 40, 46, 42, 42];
+function filmCamera(t) {
+  const x = Math.min(1, Math.max(0, t / FILM.duration));
+  const u = x * x * (3 - 2 * x) * 0.6 + x * 0.4; // gentle ease in and out
+  camera.position.copy(filmPos.getPoint(u));
+  const tgt = filmTgt.getPoint(u);
+  const k = THREE.MathUtils.smoothstep(u, 0.7, 1);
+  camera.up.set(0, 1 - k, -k).normalize();
+  camera.lookAt(tgt);
+  const seg = u * (filmFov.length - 1), i = Math.min(filmFov.length - 2, Math.floor(seg)), f = seg - i;
+  camera.fov = THREE.MathUtils.lerp(filmFov[i], filmFov[i + 1], f * f * (3 - 2 * f));
+  camera.updateProjectionMatrix();
+}
+
 // ------------------------------------------------------------------ loop
 const clock = new THREE.Clock();
 let elapsed = 0;
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05);
+  step(Math.min(clock.getDelta(), 0.05));
+  requestAnimationFrame(frame);
+}
+
+function step(dt) {
   elapsed += dt;
 
   // gentle flight motion outside; perfectly still in the cabin so the
   // cutaway and the seat view stay steady
   swayAmt += ((mode === 'exterior' ? 1 : 0) - swayAmt) * Math.min(1, dt * 2);
-  if (mode === 'photo') swayAmt = 0;
+  if (mode === 'photo' || mode === 'film') swayAmt = 0;
   aircraft.rotation.z = Math.sin(elapsed * 0.31) * 0.012 * swayAmt;
   aircraft.rotation.x = Math.sin(elapsed * 0.23 + 1) * 0.006 * swayAmt;
   aircraft.position.y = Math.sin(elapsed * 0.4) * 0.35 * swayAmt;
@@ -435,7 +533,8 @@ function frame() {
     controls.target.lerpVectors(tween.t0, tween.t1, k);
     if (tween.t >= 1) tween = null;
   }
-  if (mode !== 'photo') controls.update();
+  if (mode === 'film') filmCamera(elapsed);
+  else if (mode !== 'photo') controls.update();
 
   // the sun's shadow camera tracks the aircraft
   const c = new THREE.Vector3(0, 0, LENGTH / 2);
@@ -444,10 +543,9 @@ function frame() {
 
   clouds.update(dt, camera, bob);
   photoFinish.uniforms.uTime.value = elapsed;
-  if (mode === 'photo') composer.render(dt);
+  if (mode === 'photo' || mode === 'film' || look === 'dusk') composer.render(dt);
   else renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
-  requestAnimationFrame(frame);
 }
 
 window.addEventListener('resize', () => {
@@ -474,5 +572,26 @@ if (deep.get('cam')) {
   camera.position.set(v[0], v[1], v[2]);
   controls.target.set(v[3], v[4], v[5]);
 }
+if (deep.get('look') === 'dusk') applyDusk();
+for (const a of document.querySelectorAll('[data-look]')) {
+  a.setAttribute('aria-current', String(a.dataset.look === look));
+}
 if (deep.has('instant')) { tween && (tween.t = 1); cutCurrent = cutTarget > 1e3 ? 40 : cutTarget; }
-frame();
+
+if (deep.has('film')) {
+  // deterministic frame-by-frame render for exporting the shot
+  setMode('film');
+  cutCurrent = cutTarget;
+  window.film = {
+    ...FILM,
+    frames: Math.round(FILM.duration * FILM.fps),
+    // call with i = 0, 1, 2 … in order; each call advances one frame
+    render(i) {
+      elapsed = (i - 1) / FILM.fps;
+      step(1 / FILM.fps);
+      return renderer.domElement.toDataURL('image/jpeg', 0.95);
+    },
+  };
+} else {
+  frame();
+}

@@ -1,6 +1,6 @@
 # 777-300ER cabin (three.js)
 
-A plain white Boeing 777-300ER-sized airliner with no logo or titles, cruising above
+A Boeing 777-300ER-sized airliner in an ANA-style livery (or plain white with `?livery=plain`), cruising above
 a sea of clouds that scrolls forever. The cabin follows the ANA 777-300ER (77W) seat
 map in real metres, and every seat is one instance in an `InstancedMesh` that knows
 its class, row and letter.
@@ -65,6 +65,34 @@ straight-down aerial frame with no UI or labels.
 - **Top-down**: a straight-down aerial view with the nose at the top. The whole aircraft is in
   frame, the crown is replaced by clear glass, and ambient occlusion is applied. There are no labels.
 - **Seat**: eye height in the selected seat. Drag to look around.
+
+## Livery
+
+The exterior wears an ANA-style livery by default:
+- a white fuselage
+- a Triton-blue band along the lower sides with a Mohican-blue pinstripe beneath, sweeping up into the tail
+- a blue fin with a light-blue band at the root and white "ANA" letters
+- "ANA" titles above the forward windows
+
+The paint is applied in the shader from object-space position, so it needs no UV unwrapping.
+`?livery=plain` restores the plain white, logo-free aircraft.
+
+## Dusk look and fly-through
+
+`?look=dusk` (the **Dusk** switch in the panel) restyles the scene as a blue-hour drone shot.
+The sun sits on the horizon, so the sky runs orange low and deep blue above. The clouds are
+lit pink and orange, a row of warm lamps lights the cabin, the windows glow, and the brightest
+lights get a soft glow.
+
+`?film&look=dusk&clean` turns the page into a deterministic 8-second, 24 fps shot. It starts
+wide on the airliner and pushes in over the First and Business cabins. Then it rises in a
+turning diagonal to the straight-down glass-roof view. `window.film.render(i)` renders frame
+`i` (call it in order, from 0 to 191) and returns it as a JPEG data URL, so the frames can be
+captured headlessly and joined with ffmpeg:
+
+```bash
+ffmpeg -framerate 24 -i f%04d.jpg -c:v libx264 -crf 17 -pix_fmt yuv420p flythrough.mp4
+```
 
 ## Files
 

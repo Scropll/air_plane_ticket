@@ -150,16 +150,37 @@ export class CloudSea {
     scene.add(this.group);
   }
 
-  /** Finer, brighter cloud tops for the straight-down aerial view. */
-  setAerial(on) {
+  /**
+   * Finer, brighter cloud tops for close aerial views. `k` is true (straight
+   * down, 14x finer), false (default) or a number to scale the detail by.
+   */
+  setAerial(k) {
+    const f = k === true ? 14 : k === false ? 1 : k;
+    const on = f > 1;
     for (const l of this.layers) {
       const u = l.mat.uniforms;
       if (!l.base) l.base = { scale: u.uScale.value, cover: u.uCover.value, bright: u.uBright.value };
-      u.uScale.value = l.base.scale * (on ? 14 : 1);
+      u.uScale.value = l.base.scale * f;
       u.uCover.value = l.base.cover - (on ? 0.08 : 0);
-      u.uBright.value = l.base.bright * (on ? 1.12 : 1);
+      u.uBright.value = l.base.bright * (on ? 1.12 : 1) * (this.brightScale ?? 1);
     }
-    for (const w of this.wisps) w.visible = !on;
+    for (const w of this.wisps) w.visible = f < 2;
+  }
+
+  /** Re-light the deck (e.g. for dusk). */
+  setPalette({ lit, shade, haze, bright = 1, sunDir }) {
+    this.brightScale = bright;
+    for (const l of this.layers) {
+      const u = l.mat.uniforms;
+      if (lit) u.uLit.value.copy(lit);
+      if (shade) u.uShade.value.copy(shade);
+      if (haze) u.uHaze.value.copy(haze);
+      if (sunDir) u.uSunDir.value.copy(sunDir);
+      if (!l.base) l.base = { scale: u.uScale.value, cover: u.uCover.value, bright: u.uBright.value };
+      u.uBright.value = l.base.bright * bright;
+    }
+    for (const w of this.wisps) w.material.color.copy(lit ?? w.material.color).multiplyScalar(1.5 * bright);
+    if (haze) this.floor.material.color.copy(shade ?? haze).multiplyScalar(0.8);
   }
 
   resetWisp(s, initial) {

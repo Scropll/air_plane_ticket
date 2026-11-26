@@ -98,3 +98,7 @@ body[data-mode="photo"] .panel > :not(.views) { display: none; }
 body[data-mode="photo"] .panel { padding: 6px; width: 340px; }
 body[data-mode="photo"] #seat-info, body[data-mode="photo"] #tooltip { display: none; }
 body.clean .panel, body.clean #seat-info, body.clean #tooltip, body.clean .labels > * { display: none !important; }
+
+.looks { display: flex; gap: 6px; margin-top: 8px; }
+.looks a { flex: 1; text-align: center; font-size: 12.5px; padding: 5px 0; border-radius: 8px; color: var(--ink); text-decoration: none; background: rgba(21, 32, 43, 0.06); }
+.looks a[aria-current="true"] { background: var(--ink); color: #fff; font-weight: 600; }

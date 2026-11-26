@@ -11,7 +11,7 @@ const DEG = Math.PI / 180;
  * Builds the exterior airframe. Returns { group, clipMaterials, fans, lights }.
  * Plain white livery, no logo, no titles.
  */
-export function buildAircraft() {
+export function buildAircraft({ livery = 'ana' } = {}) {
   const group = new THREE.Group();
   group.name = 'airframe';
 
@@ -39,7 +39,9 @@ export function buildAircraft() {
   for (let z = NOSE_LEN + 0.5; z < TAIL_START; z += 0.5) zs.push(z);
   for (let i = 0; i <= 40; i++) zs.push(TAIL_START + (LENGTH - TAIL_START) * (i / 40));
   const fus = ringSurface(zs, 72, (z) => section(z), 0);
-  const fuselage = new THREE.Mesh(fus, white);
+  const fusMat = livery === 'ana' ? anaFuselageMaterial(white) : white;
+  if (fusMat !== white) clipMaterials.push(fusMat);
+  const fuselage = new THREE.Mesh(fus, fusMat);
   fuselage.castShadow = false; // let the sun light the cabin in the cutaway
   fuselage.receiveShadow = false; // interior would otherwise shadow the skin
   fuselage.name = 'fuselage';
@@ -228,7 +230,8 @@ export function buildAircraft() {
     c, t, chordDir: new THREE.Vector3(0, 0, 1), thickDir: new THREE.Vector3(1, 0, 0), camber: 0,
   });
   const finGeom = loft([vf(0, 10.2, 0.12), vf(0.6, 9.6, 0.12), vf(9.2, 3.2, 0.1), vf(9.45, 2.6, 0.1)], 20);
-  const fin = new THREE.Mesh(finGeom, tailMat);
+  const finMat = livery === 'ana' ? anaFinMaterial(tailMat) : tailMat;
+  const fin = new THREE.Mesh(finGeom, finMat);
   fin.castShadow = true;
   group.add(fin);
   // dorsal fillet
@@ -236,7 +239,7 @@ export function buildAircraft() {
     { o: new THREE.Vector3(0, 2.75, 60.4), c: 3.4, t: 0.12, chordDir: new THREE.Vector3(0, 0, 1), thickDir: new THREE.Vector3(1, 0, 0), camber: 0 },
     { o: new THREE.Vector3(0, 3.3, 62.0), c: 1.6, t: 0.25, chordDir: new THREE.Vector3(0, 0, 1), thickDir: new THREE.Vector3(1, 0, 0), camber: 0 },
   ], 12);
-  group.add(new THREE.Mesh(dorsal, tailMat));
+  group.add(new THREE.Mesh(dorsal, finMat));
 
   // ------------------------------------------------------- navigation lights
   const lights = [];
@@ -427,4 +430,103 @@ export function buildGlassRoof(z0, z1, cutY) {
   }
   group.name = 'glass-roof';
   return group;
+}
+
+// ---------------------------------------------------------------------------
+// ANA livery, painted in the shader from object-space position so it needs no
+// UV layout: white fuselage, a Triton-blue band along the lower sides with a
+// Mohican-blue pinstripe beneath, sweeping up into a blue fin.
+// ---------------------------------------------------------------------------
+const TRITON = 'vec3(0.0065, 0.058, 0.27)';  // #13448F in linear
+const MOHICAN = 'vec3(0.0, 0.37, 0.75)';     // #00A3E0 in linear
+
+function titleTexture({ color, slashes }) {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = color;
+  g.font = 'italic 900 210px "Helvetica Neue", Arial, sans-serif';
+  g.textBaseline = 'middle';
+  g.fillText('ANA', 20, 136);
+  if (slashes) {
+    const w = g.measureText('ANA').width + 40;
+    const bar = (x, col) => {
+      g.fillStyle = col;
+      g.beginPath();
+      g.moveTo(x + 70, 52); g.lineTo(x + 110, 52); g.lineTo(x + 40, 212); g.lineTo(x, 212);
+      g.closePath(); g.fill();
+    };
+    bar(w, '#13448f');
+    bar(w + 52, '#00a3e0');
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+function withLocal(mat, key, fragment, uniforms = {}) {
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, uniforms);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vLocal;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLocal = position;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vLocal;\n' +
+        Object.keys(uniforms).map((u) => `uniform sampler2D ${u};`).join('\n'))
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + fragment);
+  };
+  mat.customProgramCacheKey = () => key;
+  return mat;
+}
+
+function anaFuselageMaterial(base) {
+  const m = base.clone();
+  return withLocal(m, 'ana-fuselage', `
+    {
+      vec3 P = vLocal;
+      float tail = smoothstep(47.0, 70.0, P.z);
+      float nose = 1.0 - smoothstep(1.5, 11.0, P.z);
+      float top = -0.6 - nose * nose * 0.9 + tail * 3.7;            // band rises into the fin
+      float bot = top - 0.5 - smoothstep(20.0, 60.0, P.z) * 0.35 - tail * 0.3;
+      float pin = bot - 0.12;
+      float aa = 0.015;
+      float navy = smoothstep(bot - aa, bot + aa, P.y) * (1.0 - smoothstep(top - aa, top + aa, P.y)) * step(1.6, P.z);
+      float lite = smoothstep(pin - aa, pin + aa, P.y) * (1.0 - smoothstep(bot - aa, bot + aa, P.y)) * step(2.6, P.z);
+      diffuseColor.rgb = mix(diffuseColor.rgb, ${MOHICAN}, lite);
+      diffuseColor.rgb = mix(diffuseColor.rgb, ${TRITON}, navy);
+      // "ANA" titles above the forward windows, reading correctly on both sides
+      float side = sign(P.x);
+      float u = (P.z - 9.6) / 4.6;
+      u = side > 0.0 ? 1.0 - u : u;
+      float v = (P.y - 0.42) / 1.15;
+      if (abs(P.x) > 1.5 && u > 0.0 && u < 1.0 && v > 0.0 && v < 1.0) {
+        vec4 t = texture2D(uTitle, vec2(u, v));
+        diffuseColor.rgb = mix(diffuseColor.rgb, t.rgb, t.a);
+      }
+    }`, { uTitle: { value: titleTexture({ color: '#13448f', slashes: true }) } });
+}
+
+function anaFinMaterial(base) {
+  const m = base.clone();
+  return withLocal(m, 'ana-fin', `
+    {
+      vec3 P = vLocal;
+      float h = P.y - 2.5;                                         // height above the fin root
+      float band = smoothstep(0.55, 0.6, h + (P.z - 62.5) * 0.05) * (1.0 - smoothstep(1.2, 1.25, h + (P.z - 62.5) * 0.05));
+      vec3 col = mix(${TRITON}, ${MOHICAN}, band);
+      diffuseColor.rgb = col;
+      // large white "ANA" running up along the swept leading edge
+      vec2 q = vec2(P.z, P.y);
+      vec2 c = vec2(69.4, 7.3);
+      vec2 d = normalize(vec2(0.62, 1.0));
+      vec2 n = vec2(-d.y, d.x);
+      float u = dot(q - c, d) / 7.2 + 0.5;
+      float v = dot(q - c, n) / 1.8 + 0.5;
+      if (P.x > 0.0) u = 1.0 - u;
+      if (u > 0.0 && u < 1.0 && v > 0.0 && v < 1.0) {
+        vec4 t = texture2D(uFinTitle, vec2(u, v));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), t.a);
+      }
+    }`, { uFinTitle: { value: titleTexture({ color: '#ffffff', slashes: false }) } });
 }
