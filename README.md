@@ -23,7 +23,7 @@ Economy rows land 0.87 m apart, which matches ANA's 34 in pitch.
 | Class | Stations (m) | Layout | Seats | Rows / letters |
 |---|---|---|---|---|
 | First | 10.5 – 14.4 | 1-2-1 "THE Suite": wide charcoal seat, 43 in screen in a dark-wood surround, ottoman, window console, ribbed walls with a sliding door | 8 | rows 1–2 · A D G K |
-| Business | 14.6 – 17.6, 21.8 – 34.9, 37.5 – 42.9 | 1-2-1 staggered pods | 64 | rows 5–20 · odd rows A E F K, even rows C D G H |
+| Business | 14.5 – 17.7, 21.7 – 35.0, 37.4 – 43.0 | 1-2-1 "THE Room": wide charcoal bench seats that alternate between facing aft (odd rows) and facing forward (even rows), with facing pairs' footwells side by side; ottoman under a 24 in screen, wood-grain-topped console, grey frames with beige wood-grain walls | 64 | rows 5–20 · odd rows A E F K, even rows C D G H |
 | Premium Economy | 43.4 – 46.4 | 2-4-2, 1.0 m pitch | 24 | rows 25–27 · AC DEFG HK |
 | Economy | 50.0 – 61.2 | 3-4-3, 0.87 m pitch; 2-4-2 in rows 39–41 and A C only in row 42, where the fuselage tapers | 116 | rows 30–42 · ABC DEFG HJK |
 

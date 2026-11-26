@@ -88,25 +88,23 @@ export const LAYOUT = {
   // Business: staggered 1-2-1. Odd rows seat A, E, F, K; even rows C, D, G, H.
   // console: side (+1 = +x) of the seat that carries the side table.
   business: {
-    // z = pod centre; the seat sits 0.41 m aft of it, the ottoman ahead
+    // z = suite centre; the seat sits 0.41 m from it, the footwell on the other side
     blocks: [
       rowsFrom(15.45, 1.3, 5, 6),
       rowsFrom(22.6, 1.264, 7, 16),
       rowsFrom(38.3, 1.264, 17, 20),
     ],
-    odd: [
-      { letter: 'A', x: -2.25, position: 'window', console: 1 },
-      { letter: 'E', x: -0.33, position: 'centre', console: -1 },
-      { letter: 'F', x: 0.33, position: 'centre', console: 1 },
-      { letter: 'K', x: 2.25, position: 'window', console: -1 },
+    // Four suite columns. Odd rows face aft, even rows face forward, so each
+    // facing pair tucks its footwells side by side ("THE Room").
+    // mirror flips which side of the suite the footwell sits on.
+    columns: [
+      { x: -2.18, kind: 'win', mirror: false, odd: 'A', even: 'C', position: 'window' },
+      { x: -0.56, kind: 'mid', mirror: true, odd: 'E', even: 'D', position: 'centre' },
+      { x: 0.56, kind: 'mid', mirror: false, odd: 'F', even: 'G', position: 'centre' },
+      { x: 2.18, kind: 'win', mirror: true, odd: 'K', even: 'H', position: 'window' },
     ],
-    even: [
-      { letter: 'C', x: -1.88, position: 'aisle', console: -1 },
-      { letter: 'D', x: -0.72, position: 'aisle', console: 1 },
-      { letter: 'G', x: 0.72, position: 'aisle', console: -1 },
-      { letter: 'H', x: 1.88, position: 'aisle', console: 1 },
-    ],
-    seatWidth: 0.56,
+    columnWidth: 1.12,
+    seatWidth: 0.72,
     podLength: 1.9,
   },
 
