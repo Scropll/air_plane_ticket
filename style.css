@@ -102,3 +102,14 @@ body.clean .panel, body.clean #seat-info, body.clean #tooltip, body.clean .label
 .looks { display: flex; gap: 6px; margin-top: 8px; }
 .looks a { flex: 1; text-align: center; font-size: 12.5px; padding: 5px 0; border-radius: 8px; color: var(--ink); text-decoration: none; background: rgba(21, 32, 43, 0.06); }
 .looks a[aria-current="true"] { background: var(--ink); color: #fff; font-weight: 600; }
+
+/* dusk: dark glass panels to sit with the evening scene */
+body.dusk { color: #eef1f6; --ink: #eef1f6; --muted: #a6afbd; --glass: rgba(16, 20, 30, 0.62); --line: rgba(255, 255, 255, 0.14); background: #2a2a3a; }
+body.dusk .panel, body.dusk .card { border-color: rgba(255, 255, 255, 0.12); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35); }
+body.dusk .views { background: rgba(255, 255, 255, 0.08); }
+body.dusk .views button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.92); color: #15202b; }
+body.dusk #finder input { background: rgba(255, 255, 255, 0.08); color: var(--ink); }
+body.dusk button[type="submit"], body.dusk .primary, body.dusk .looks a[aria-current="true"] { background: #f0b46a; color: #1b1a22; }
+body.dusk .looks a { background: rgba(255, 255, 255, 0.08); }
+body.dusk #legend li:hover { background: rgba(255, 255, 255, 0.08); }
+body.dusk .si-class { filter: brightness(1.6); }
