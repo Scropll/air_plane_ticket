@@ -76,7 +76,7 @@ scene.add(hemi);
 const aircraft = new THREE.Group();
 aircraft.name = 'aircraft';
 scene.add(aircraft);
-const airframe = buildAircraft();
+const airframe = buildAircraft({ livery: new URLSearchParams(location.search).get('livery') || 'ana' });
 const cabin = buildCabin();
 aircraft.add(airframe.group, cabin.group);
 

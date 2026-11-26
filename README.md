@@ -1,6 +1,6 @@
 # 777-300ER cabin (three.js)
 
-A plain white Boeing 777-300ER-sized airliner with no logo or titles, cruising above
+A Boeing 777-300ER-sized airliner in an ANA-style livery (or plain white with `?livery=plain`), cruising above
 a sea of clouds that scrolls forever. The cabin follows the ANA 777-300ER (77W) seat
 map in real metres, and every seat is one instance in an `InstancedMesh` that knows
 its class, row and letter.
@@ -65,6 +65,17 @@ straight-down aerial frame with no UI or labels.
 - **Top-down**: a straight-down aerial view with the nose at the top. The whole aircraft is in
   frame, the crown is replaced by clear glass, and ambient occlusion is applied. There are no labels.
 - **Seat**: eye height in the selected seat. Drag to look around.
+
+## Livery
+
+The exterior wears an ANA-style livery by default:
+- a white fuselage
+- a Triton-blue band along the lower sides with a Mohican-blue pinstripe beneath, sweeping up into the tail
+- a blue fin with a light-blue band at the root and white "ANA" letters
+- "ANA" titles above the forward windows
+
+The paint is applied in the shader from object-space position, so it needs no UV unwrapping.
+`?livery=plain` restores the plain white, logo-free aircraft.
 
 ## Dusk look and fly-through
 
