@@ -78,3 +78,26 @@ export function loft(sections, n = 24) {
   g.computeVertexNormals();
   return g;
 }
+
+/**
+ * Mirror a non-indexed geometry across x = 0 with the triangle winding put
+ * back the right way round. Use this instead of a negative instance scale,
+ * which InstancedMesh renders inside-out.
+ */
+export function mirrorX(geometry) {
+  const g = geometry.clone();
+  g.scale(-1, 1, 1);
+  for (const name of Object.keys(g.attributes)) {
+    const a = g.attributes[name];
+    const n = a.itemSize;
+    for (let t = 0; t < a.count; t += 3) {
+      for (let k = 0; k < n; k++) {
+        const i1 = (t + 1) * n + k, i2 = (t + 2) * n + k;
+        const tmp = a.array[i1]; a.array[i1] = a.array[i2]; a.array[i2] = tmp;
+      }
+    }
+  }
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  return g;
+}

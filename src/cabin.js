@@ -2,14 +2,14 @@ import * as THREE from 'three';
 import {
   FLOOR_Y, INNER, WALL, CABIN_Z0, CABIN_Z1, LAYOUT, section, cabinHalfWidth,
 } from './dims.js';
-import { box, merge } from './geom.js';
+import { box, merge, mirrorX } from './geom.js';
 
 /**
  * Cabin classes of the ANA Boeing 777-300ER (77W).
  * `code` is the booking-cabin code; `accent` is only used by the UI.
  */
 export const CLASSES = {
-  First: { code: 'F', label: 'First', layout: '1-2-1 closed suites', accent: '#8a6a4d' },
+  First: { code: 'F', label: 'First', layout: '1-2-1 closed suites (THE Suite)', accent: '#5a5d63' },
   Business: { code: 'J', label: 'Business', layout: '1-2-1 staggered', accent: '#4d5560' },
   Premium: { code: 'W', label: 'Premium Economy', layout: '2-4-2', accent: '#5f7590' },
   Economy: { code: 'Y', label: 'Economy', layout: '3-4-3', accent: '#2f4a6d' },
@@ -126,39 +126,74 @@ function businessPodGeometry(L) {
   ]);
 }
 
+// ANA First "THE Suite": charcoal fabric, dark wood, ribbed charcoal walls.
+const FS = {
+  fabric: 0x2c2c2f, base: 0x232427, pad: 0x4a4c50, bolster: 0x26282b, pillow: 0x2b3170,
+  wall: 0x25262a, rib: 0x1c1d20, cap: 0x2d2f33, door: 0x2a2c30, wood: 0x3a2f28,
+  frame: 0x17181a, screen: 0x2f55a8, light: 0xf3f1ea, console: 0x34363a, display: 0x0d1a2e,
+};
+
+/** The First seat itself (origin = cushion centre, faces -z). */
 function firstSeatGeometry() {
-  const th = 0.16, back = [0, 0.95, 0.28];
   return merge([
-    box(0.6, 0.3, 0.6, 0, 0.15, 0, C.firstDark),
-    box(0.66, 0.16, 0.64, 0, 0.42, -0.02, C.firstLeather),
-    box(0.66, 0.98, 0.16, ...back, C.firstLeather, th),
-    box(0.44, 0.2, 0.14, 0, 1.38, 0.36, C.white, th),        // pillow
-    box(0.12, 0.14, 0.6, 0.39, 0.6, 0.0, C.firstDark),
-    box(0.12, 0.14, 0.6, -0.39, 0.6, 0.0, C.firstDark),
+    box(0.68, 0.3, 0.56, 0, 0.15, 0, FS.base),
+    box(0.72, 0.15, 0.6, 0, 0.375, 0, FS.fabric),
+    box(0.72, 0.84, 0.14, 0, 0.87, 0.26, FS.fabric, 0.08),     // tall upright back
+    box(0.46, 0.22, 0.06, 0, 1.12, 0.2, FS.pad, 0.08),          // grey headrest pad
   ]);
 }
 
-/** First suite shell: walls, closed sliding door on +x, monitor, ottoman. */
-function suiteShellGeometry(L, W, H) {
-  const t = 0.05, hl = L / 2, hw = W / 2;
-  const doorZ0 = -0.3, doorZ1 = 0.5;
-  return merge([
-    box(W, H, t, 0, H / 2, -hl, C.shell),                         // forward wall
-    box(W, H, t, 0, H / 2, hl, C.shell),                          // aft wall
-    box(t, H, L, -hw, H / 2, 0, C.shell),                          // -x wall
-    box(t, H, doorZ0 + hl, hw, H / 2, (-hl + doorZ0) / 2, C.shell),
-    box(t, H, hl - doorZ1, hw, H / 2, (doorZ1 + hl) / 2, C.shell),
-    box(0.03, H - 0.04, doorZ1 - doorZ0, hw + 0.035, H / 2, (doorZ0 + doorZ1) / 2, C.wood), // closed door
-    box(W + 0.02, 0.03, 0.08, 0, H + 0.015, -hl, C.trim),         // top trims
-    box(W + 0.02, 0.03, 0.08, 0, H + 0.015, hl, C.trim),
-    box(0.08, 0.03, L, -hw, H + 0.015, 0, C.trim),
-    box(0.08, 0.03, L, hw, H + 0.015, 0, C.trim),
-    box(0.72, 0.42, 0.03, 0, 0.98, -hl + 0.04, C.screen),         // 23-inch screen
-    box(0.5, 0.42, 0.48, 0, 0.21, -0.52, C.firstDark),            // ottoman / bed extension
-    box(0.26, 0.62, 1.35, -hw + 0.16, 0.31, 0.12, C.wood),        // side console
-    box(0.28, 0.02, 1.35, -hw + 0.16, 0.63, 0.12, C.trim),
-    box(0.36, 0.03, 0.5, -hw + 0.34, 0.72, -0.3, C.wood),         // dining table
-  ]);
+/**
+ * THE Suite shell (origin = suite centre, door on +x, window/console on -x):
+ * ribbed charcoal walls with a rounded top rail and a light strip at the base,
+ * a 43-inch screen in a dark-wood surround on the forward wall, an ottoman
+ * under it that completes the bed, a window-side console and a sliding door.
+ */
+function suiteShellGeometry(L, W, H, { windowSide = false, seatZ = 0.6, seatX = 0.06 } = {}) {
+  const t = 0.06, hl = L / 2, hw = W / 2;
+  const doorZ0 = -0.35, doorZ1 = 0.45;
+  const P = [
+    box(W, H, t, 0, H / 2, -hl, FS.wall),                                    // forward wall
+    box(W, H, t, 0, H / 2, hl, FS.wall),                                     // aft wall
+    // the window suites are open over the console to the cabin windows;
+    // the centre pair share a full-height divider
+    windowSide ? box(t, 0.72, L, -hw, 0.36, 0, FS.wall) : box(t, H, L, -hw, H / 2, 0, FS.wall),
+    box(0.1, 0.64, 0.6, seatX + 0.41, 0.32, seatZ, FS.bolster),              // door-side seat bolster
+    box(0.34, 0.22, 0.12, seatX - 0.16, 0.58, seatZ + 0.16, FS.pillow, 0.35), // navy cushion
+    box(t, H, doorZ0 + hl, hw, H / 2, (-hl + doorZ0) / 2, FS.wall),          // aisle wall, fwd of door
+    box(t, H, hl - doorZ1, hw, H / 2, (doorZ1 + hl) / 2, FS.wall),           // aisle wall, aft of door
+    box(0.035, H - 0.06, doorZ1 - doorZ0, hw + 0.04, H / 2, (doorZ0 + doorZ1) / 2, FS.door), // sliding door (closed)
+    // rounded top rail
+    box(W + 0.08, 0.06, 0.1, 0, H + 0.03, -hl, FS.cap),
+    box(W + 0.08, 0.06, 0.1, 0, H + 0.03, hl, FS.cap),
+    windowSide ? box(0.1, 0.04, L, -hw, 0.74, 0, FS.cap) : box(0.1, 0.06, L, -hw, H + 0.03, 0, FS.cap),
+    box(0.1, 0.06, L, hw, H + 0.03, 0, FS.cap),
+    // light strip along the base, outside
+    box(0.012, 0.015, L - 0.1, hw + 0.04, 0.06, 0, FS.light),
+    box(0.012, 0.015, L - 0.1, -hw - 0.04, 0.06, 0, FS.light),
+    box(W - 0.1, 0.015, 0.012, 0, 0.06, hl + 0.04, FS.light),
+    // dark-wood surround and the screen on the forward wall
+    box(W - 0.14, H - 0.2, 0.02, 0, (H - 0.2) / 2 + 0.05, -hl + 0.04, FS.wood),
+    box(0.92, 0.56, 0.04, 0.02, 0.97, -hl + 0.07, FS.frame),
+    box(0.86, 0.5, 0.012, 0.02, 0.97, -hl + 0.095, FS.screen),
+    // ottoman (forms the bed with the seat)
+    box(0.72, 0.44, 0.5, 0.06, 0.22, -hl + 0.32, FS.fabric),
+    box(0.74, 0.03, 0.52, 0.06, 0.455, -hl + 0.32, FS.base),
+    // window-side console with controls
+    box(0.2, 0.7, L - 0.1, -hw + 0.13, 0.35, 0, FS.console),
+    box(0.22, 0.02, L - 0.1, -hw + 0.13, 0.71, 0, FS.cap),
+    box(0.1, 0.012, 0.18, -hw + 0.13, 0.725, 0.12, FS.frame),
+    box(0.08, 0.012, 0.08, -hw + 0.13, 0.725, -0.12, FS.display),
+  ];
+  // vertical ribs on the aisle face and the aft face
+  const ribH = H - 0.25;
+  for (let z = -hl + 0.06; z < hl - 0.04; z += 0.105) {
+    P.push(box(0.02, ribH, 0.035, hw + 0.07, ribH / 2 + 0.1, z, FS.rib));
+  }
+  for (let x = -hw + 0.06; x < hw - 0.04; x += 0.105) {
+    P.push(box(0.035, ribH, 0.02, x, ribH / 2 + 0.1, hl + 0.045, FS.rib));
+  }
+  return merge(P);
 }
 
 // ---------------------------------------------------------------- textures
@@ -212,7 +247,7 @@ export function buildCabin() {
   const floorZones = [
     [3.0, CABIN_Z0, 0x30343a],
     [CABIN_Z0, 10.4, 0x8d9299],
-    [10.4, 14.5, 0x5a5048],   // First
+    [10.4, 14.5, 0x34312e],   // First: charcoal speckled carpet
     [14.5, 17.6, 0x41474f],   // Business
     [17.6, 21.8, 0x8d9299],
     [21.8, 34.9, 0x41474f],
@@ -298,10 +333,10 @@ export function buildCabin() {
   const F = LAYOUT.first;
   for (const { row, z } of F.rows) {
     for (const c of F.cols) {
-      furniture.push({ kind: 'suite', x: c.x, z, mirror: c.doorSide < 0 });
+      furniture.push({ kind: c.position === 'window' ? 'suiteWin' : 'suiteMid', x: c.x, z, mirror: c.doorSide < 0 });
       specs.push({
         cabin: 'First', row, letter: c.letter, position: c.position,
-        x: c.x, z: z + 0.32, yaw: 0, pitch: F.suiteLength, width: F.suiteWidth, zone: `Suite ${row}${c.letter}`,
+        x: c.x + 0.06 * c.doorSide, z: z + 0.6, yaw: 0, pitch: F.suiteLength, width: F.suiteWidth, zone: `Suite ${row}${c.letter}`,
       });
     }
   }
@@ -311,10 +346,11 @@ export function buildCabin() {
     for (const { row, z } of block) {
       const cols = row % 2 ? B.odd : B.even;
       for (const c of cols) {
-        furniture.push({ kind: 'pod', x: c.x, z, mirror: c.console < 0 });
+        const seatZ = z + 0.41;
+        furniture.push({ kind: 'pod', x: c.x, z: seatZ, mirror: c.console < 0 });
         specs.push({
           cabin: 'Business', row, letter: c.letter, position: c.position,
-          x: c.x, z, yaw: 0, pitch: B.podLength, width: B.seatWidth,
+          x: c.x, z: seatZ, yaw: 0, pitch: B.podLength, width: B.seatWidth,
           zone: ['Business (forward)', 'Business (mid)', 'Business (aft)'][bi],
         });
       }
@@ -386,7 +422,7 @@ export function buildCabin() {
 
   for (const cabin of Object.keys(CLASSES)) {
     const list = specs.filter((s) => s.cabin === cabin);
-    const mat = cabin === 'First' || cabin === 'Business' ? leatherMat : fabricMat;
+    const mat = cabin === 'Business' ? leatherMat : fabricMat;
     const mesh = new THREE.InstancedMesh(geoms[cabin], mat, list.length);
     mesh.name = `seats:${cabin}`;
     mesh.castShadow = true;
@@ -418,23 +454,28 @@ export function buildCabin() {
     proxies.push(proxy);
   }
 
-  // Suite shells and business pods: instanced, mirrored so every First door
-  // opens onto an aisle and every Business console sits on the right side.
-  const furnMat = vmat({ side: THREE.DoubleSide, roughness: 0.55 });
+  // Suite shells and business pods: instanced. Mirrored copies use mirrored
+  // geometry so every First door opens onto an aisle and every Business
+  // console sits on the correct side.
+  const furnMat = vmat({ roughness: 0.55 });
   for (const [kind, geom] of [
-    ['suite', suiteShellGeometry(F.suiteLength, F.suiteWidth, F.wallHeight)],
+    ['suiteWin', suiteShellGeometry(F.suiteLength, F.suiteWidth, F.wallHeight, { windowSide: true })],
+    ['suiteMid', suiteShellGeometry(F.suiteLength, F.suiteWidth, F.wallHeight)],
     ['pod', businessPodGeometry(B.podLength)],
   ]) {
-    const list = furniture.filter((f) => f.kind === kind);
-    const m = new THREE.InstancedMesh(geom, furnMat, list.length);
-    m.name = kind === 'suite' ? 'first-suite-shells' : 'business-pods';
-    list.forEach((f, i) => {
-      tmpM.compose(new THREE.Vector3(f.x, FLOOR_Y, f.z), new THREE.Quaternion(), new THREE.Vector3(f.mirror ? -1 : 1, 1, 1));
-      m.setMatrixAt(i, tmpM);
-    });
-    m.castShadow = true; m.receiveShadow = true;
-    m.computeBoundingSphere();
-    group.add(m);
+    for (const mirrored of [false, true]) {
+      const list = furniture.filter((f) => f.kind === kind && f.mirror === mirrored);
+      if (!list.length) continue;
+      const m = new THREE.InstancedMesh(mirrored ? mirrorX(geom) : geom, furnMat, list.length);
+      m.name = `${kind === 'pod' ? 'business-pods' : 'first-suite-shells'}${mirrored ? ':mirrored' : ''}`;
+      list.forEach((f, i) => {
+        tmpM.makeTranslation(f.x, FLOOR_Y, f.z);
+        m.setMatrixAt(i, tmpM);
+      });
+      m.castShadow = true; m.receiveShadow = true;
+      m.computeBoundingSphere();
+      group.add(m);
+    }
   }
 
   // ---------------------------------------------------------------- zone labels

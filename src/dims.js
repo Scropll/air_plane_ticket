@@ -74,23 +74,24 @@ export const LAYOUT = {
   // First: 1-2-1 closed suites, rows 1-2
   first: {
     suiteLength: 1.95,
-    suiteWidth: 1.05,
+    suiteWidth: 1.1,
     rows: [{ row: 1, z: 11.45 }, { row: 2, z: 13.45 }],
     cols: [
-      { letter: 'A', x: -2.18, position: 'window', doorSide: 1 },
-      { letter: 'D', x: -0.53, position: 'centre', doorSide: -1 },
-      { letter: 'G', x: 0.53, position: 'centre', doorSide: 1 },
-      { letter: 'K', x: 2.18, position: 'window', doorSide: -1 },
+      { letter: 'A', x: -2.2, position: 'window', doorSide: 1 },
+      { letter: 'D', x: -0.56, position: 'centre', doorSide: -1 },
+      { letter: 'G', x: 0.56, position: 'centre', doorSide: 1 },
+      { letter: 'K', x: 2.2, position: 'window', doorSide: -1 },
     ],
-    wallHeight: 1.3,
+    wallHeight: 1.35,
   },
 
   // Business: staggered 1-2-1. Odd rows seat A, E, F, K; even rows C, D, G, H.
   // console: side (+1 = +x) of the seat that carries the side table.
   business: {
+    // z = pod centre; the seat sits 0.41 m aft of it, the ottoman ahead
     blocks: [
-      rowsFrom(15.36, 1.46, 5, 6),
-      rowsFrom(22.3, 1.264, 7, 16),
+      rowsFrom(15.45, 1.3, 5, 6),
+      rowsFrom(22.6, 1.264, 7, 16),
       rowsFrom(38.3, 1.264, 17, 20),
     ],
     odd: [
@@ -106,7 +107,7 @@ export const LAYOUT = {
       { letter: 'H', x: 1.88, position: 'aisle', console: 1 },
     ],
     seatWidth: 0.56,
-    podLength: 2.0,
+    podLength: 1.9,
   },
 
   // Premium Economy: 2-4-2, rows 25-27
