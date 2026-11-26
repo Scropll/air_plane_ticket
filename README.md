@@ -25,7 +25,7 @@ Economy rows land 0.87 m apart, which matches ANA's 34 in pitch.
 | First | 10.5 – 14.4 | 1-2-1 "THE Suite": wide charcoal seat, 43 in screen in a dark-wood surround, ottoman, window console, ribbed walls with a sliding door | 8 | rows 1–2 · A D G K |
 | Business | 14.5 – 17.7, 21.7 – 35.0, 37.4 – 43.0 | 1-2-1 "THE Room": wide charcoal bench seats that alternate between facing aft (odd rows) and facing forward (even rows), with facing pairs' footwells side by side; ottoman under a 24 in screen, wood-grain-topped console, grey frames with beige wood-grain walls | 64 | rows 5–20 · odd rows A E F K, even rows C D G H |
 | Premium Economy | 43.4 – 46.4 | 2-4-2, 1.0 m pitch: grey speckled fabric, winged headrest with a navy cover, fold-down leg rest, consoles with silver trim, 13 in seatback screens, navy carpet | 24 | rows 25–27 · AC DEFG HK |
-| Economy | 50.0 – 61.2 | 3-4-3, 0.87 m pitch; 2-4-2 in rows 39–41 and A C only in row 42, where the fuselage tapers | 116 | rows 30–42 · ABC DEFG HJK |
+| Economy | 50.0 – 61.2 | 3-4-3, 0.87 m pitch: royal-blue flecked fabric, winged headrest with a grey leather flap, navy pillow, white armrests and seat-back shell with a 13 in screen, silver legs, dark navy carpet; 2-4-2 in rows 39–41 and A C only in row 42, where the fuselage tapers | 116 | rows 30–42 · ABC DEFG HJK |
 
 The fuselage is 73.9 m long and 6.2 m wide (the cabin is 5.86 m wide), with a 64.8 m wingspan.
 The doors are at 8.5, 19.5, 35.2, 49.2 and 62.2 m. The galleys, lavatories, closets and the

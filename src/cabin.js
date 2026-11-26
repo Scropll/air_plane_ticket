@@ -71,18 +71,36 @@ function onBack(center, dy, dz, theta) {
   ];
 }
 
+// ANA Economy: royal-blue flecked fabric (the colour comes from the texture,
+// so fabric parts are white here), grey leather headrest flap, white plastics.
+const EY = {
+  fabric: 0xffffff, flap: 0x4a5060, shell: 0xe4e6e9, silver: 0xb8bcc2,
+  frame: 0x1c1f24, screen: 0x3d64b0, pillow: 0x1f2a5c, dark: 0x30343a,
+};
+
 function economySeatGeometry() {
-  const th = 0.2, back = [0, 0.86, 0.24];
-  const [sy, sz] = onBack(back, 0.12, 0.05, th);
+  const th = 0.2, back = [0, 0.88, 0.24];
+  const [hy, hz] = onBack(back, 0.4, -0.02, th);    // headrest
+  const [fy, fz] = onBack(back, 0.4, -0.072, th);   // leather flap on its front
+  const [ry, rz] = onBack(back, 0.0, 0.052, th);    // white rear shell
+  const [sy, sz] = onBack(back, 0.1, 0.068, th);    // 13-inch screen
   return merge([
-    box(0.04, 0.4, 0.42, 0.17, 0.2, 0.02, C.leg),
-    box(0.04, 0.4, 0.42, -0.17, 0.2, 0.02, C.leg),
-    box(0.43, 0.12, 0.47, 0, 0.44, -0.02, C.econ),
-    box(0.43, 0.68, 0.09, ...back, C.econDark, th),
-    box(0.36, 0.15, 0.1, 0, 1.12, 0.3, C.cover, th),
-    box(0.05, 0.05, 0.4, 0.215, 0.64, 0.02, C.plastic),
-    box(0.05, 0.05, 0.4, -0.215, 0.64, 0.02, C.plastic),
-    box(0.25, 0.16, 0.012, 0, sy, sz, C.screen, th),
+    fab(box(0.03, 0.4, 0.4, 0.17, 0.2, 0.0, EY.silver), 0),              // legs
+    fab(box(0.03, 0.4, 0.4, -0.17, 0.2, 0.0, EY.silver), 0),
+    fab(box(0.4, 0.025, 0.025, 0, 0.08, 0.15, EY.silver), 0),            // foot bar
+    fab(box(0.43, 0.12, 0.47, 0, 0.44, -0.02, EY.fabric), 1),            // cushion
+    fab(box(0.43, 0.72, 0.08, ...back, EY.fabric, th), 1),               // backrest
+    fab(box(0.41, 0.18, 0.1, 0, hy, hz, EY.fabric, th), 1),              // winged headrest
+    fab(box(0.26, 0.16, 0.012, 0, fy, fz, EY.flap, th), 0),              // grey leather flap
+    fab(box(0.45, 0.78, 0.022, 0, ry, rz, EY.shell, th), 0),             // white rear shell
+    fab(box(0.3, 0.2, 0.012, 0, sy, sz, EY.frame, th), 0),
+    fab(box(0.27, 0.16, 0.005, 0, sy, sz + 0.008, EY.screen, th), 0),
+    fab(box(0.3, 0.23, 0.08, 0, 0.6, 0.15, EY.pillow, 0.25), 0),         // navy pillow
+    // white armrests (slightly different where neighbours meet) with supports
+    fab(box(0.05, 0.055, 0.42, 0.2285, 0.63, 0.0, EY.shell), 0),
+    fab(box(0.04, 0.2, 0.05, 0.2285, 0.52, 0.17, EY.shell), 0),
+    fab(box(0.046, 0.05, 0.41, -0.2285, 0.625, 0.0, EY.shell), 0),
+    fab(box(0.036, 0.19, 0.048, -0.2285, 0.515, 0.165, EY.shell), 0),
   ]);
 }
 
@@ -124,16 +142,16 @@ function premiumSeatGeometry() {
 }
 
 /** Grey fabric with white flecks, like ANA's Premium Economy cover. */
-function speckleTexture() {
+function speckleTexture(base = [170, 172, 176], fleck = [200, 200, 200], spread = 55) {
   const n = 256;
   const c = document.createElement('canvas');
   c.width = c.height = n;
   const g = c.getContext('2d');
-  g.fillStyle = 'rgb(170,172,176)';
+  g.fillStyle = `rgb(${base})`;
   g.fillRect(0, 0, n, n);
   for (let i = 0; i < 1400; i++) {
-    const v = 200 + Math.random() * 55;
-    g.fillStyle = `rgb(${v},${v},${v})`;
+    const v = Math.random() * spread;
+    g.fillStyle = `rgb(${fleck[0] + v},${fleck[1] + v},${fleck[2] + v})`;
     g.save();
     g.translate(Math.random() * n, Math.random() * n);
     g.rotate(Math.random() * Math.PI);
@@ -141,8 +159,8 @@ function speckleTexture() {
     g.restore();
   }
   for (let i = 0; i < 2500; i++) {
-    const v = 120 + Math.random() * 30;
-    g.fillStyle = `rgb(${v},${v},${v + 4})`;
+    const k = 0.75 + Math.random() * 0.15;
+    g.fillStyle = `rgb(${base[0] * k},${base[1] * k},${base[2] * k})`;
     g.fillRect(Math.random() * n, Math.random() * n, 1, 1);
   }
   const t = new THREE.CanvasTexture(c);
@@ -351,7 +369,7 @@ export function buildCabin() {
     [37.5, 42.9, 0x3a3532],
     [42.9, 46.6, 0x2c3a5c],   // Premium: navy speckled carpet
     [46.6, 50.0, 0x8d9299],
-    [50.0, CABIN_Z1, 0x354562], // Economy
+    [50.0, CABIN_Z1, 0x2b3447], // Economy: dark navy carpet
   ];
   for (const [z0, z1, color] of floorZones) {
     const m = new THREE.MeshStandardMaterial({ color, map: carpet, roughness: 0.97 });
@@ -531,12 +549,13 @@ export function buildCabin() {
   const fabricMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, map: noiseTexture(0xffffff, 0.12, 128) });
   const leatherMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42 });
   const premiumMat = fabricOnlyMaterial(speckleTexture());
-  clipMaterials.push(fabricMat, leatherMat, premiumMat);
+  const economyMat = fabricOnlyMaterial(speckleTexture([36, 62, 150], [150, 175, 225], 30));
+  clipMaterials.push(fabricMat, leatherMat, premiumMat, economyMat);
   const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
 
   for (const cabin of Object.keys(CLASSES)) {
     const list = specs.filter((s) => s.cabin === cabin);
-    const mat = cabin === 'Premium' ? premiumMat : fabricMat;
+    const mat = cabin === 'Premium' ? premiumMat : cabin === 'Economy' ? economyMat : fabricMat;
     const mesh = new THREE.InstancedMesh(geoms[cabin], mat, list.length);
     mesh.name = `seats:${cabin}`;
     mesh.castShadow = true;
