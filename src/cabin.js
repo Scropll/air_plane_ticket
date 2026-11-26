@@ -86,20 +86,89 @@ function economySeatGeometry() {
   ]);
 }
 
+// ANA Premium Economy: grey speckled fabric, navy headrest cover, grey shells.
+const PE = {
+  fabric: 0xb4b8bf, shell: 0x8f959d, console: 0x6c7179, trim: 0xd9dde1,
+  navy: 0x27345e, frame: 0x2a2d31, screen: 0x3a5f9c, red: 0xc0282d,
+};
+
+/** Marks a part as fabric (1) or hard trim (0) for the speckle shader. */
+function fab(g, v) {
+  g.setAttribute('fab', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(v), 1));
+  return g;
+}
+
 function premiumSeatGeometry() {
-  const th = 0.22, back = [0, 0.9, 0.27];
-  const [sy, sz] = onBack(back, 0.14, 0.055, th);
+  const th = 0.2, back = [0, 0.92, 0.28];
+  const [hy, hz] = onBack(back, 0.44, -0.075, th);   // headrest front face
+  const [ry, rz] = onBack(back, 0.0, 0.075, th);     // rear shell
+  const [sy, sz] = onBack(back, 0.12, 0.092, th);    // seatback screen
   return merge([
-    box(0.06, 0.38, 0.46, 0.19, 0.19, 0.03, C.leg),
-    box(0.06, 0.38, 0.46, -0.19, 0.19, 0.03, C.leg),
-    box(0.48, 0.13, 0.5, 0, 0.45, -0.02, C.prem),
-    box(0.46, 0.28, 0.05, 0, 0.3, -0.3, C.premDark, -0.35),   // leg rest
-    box(0.48, 0.8, 0.1, ...back, C.premDark, th),
-    box(0.42, 0.2, 0.12, 0, 1.25, 0.35, C.cover, th),         // winged headrest
-    box(0.08, 0.08, 0.48, 0.27, 0.66, 0.02, C.plastic),
-    box(0.08, 0.08, 0.48, -0.27, 0.66, 0.02, C.plastic),
-    box(0.3, 0.19, 0.012, 0, sy, sz, C.screen, th),
+    fab(box(0.46, 0.3, 0.5, 0, 0.15, 0.0, PE.fabric), 1),                // fabric-covered base
+    fab(box(0.48, 0.13, 0.52, 0, 0.43, -0.01, PE.fabric), 1),            // cushion
+    fab(box(0.46, 0.3, 0.07, 0, 0.27, -0.3, PE.fabric, -0.35), 1),       // fold-down leg rest
+    fab(box(0.48, 0.82, 0.12, ...back, PE.fabric, th), 1),               // backrest
+    fab(box(0.5, 0.24, 0.14, 0, hy, hz + 0.07, PE.fabric, th), 1),        // winged headrest
+    fab(box(0.28, 0.17, 0.02, 0, hy, hz - 0.005, PE.navy, th), 0),       // navy headrest cover
+    fab(box(0.5, 0.86, 0.03, 0, ry, rz, PE.shell, th), 0),               // rear shell
+    fab(box(0.34, 0.23, 0.02, 0, sy, sz, PE.frame, th), 0),              // 13-inch screen bezel
+    fab(box(0.3, 0.19, 0.006, 0, sy, sz + 0.012, PE.screen, th), 0),
+    // consoles either side (slightly different sizes where neighbours meet)
+    fab(box(0.11, 0.74, 0.56, 0.28, 0.37, 0.02, PE.console), 0),
+    fab(box(0.12, 0.02, 0.58, 0.28, 0.75, 0.02, PE.trim), 0),
+    fab(box(0.105, 0.73, 0.55, -0.28, 0.365, 0.02, PE.console), 0),
+    fab(box(0.115, 0.02, 0.57, -0.28, 0.74, 0.02, PE.trim), 0),
+    fab(box(0.02, 0.08, 0.02, 0.28, 0.22, -0.27, PE.red), 0),            // red release handle
+    fab(box(0.12, 0.025, 0.012, 0.28, 0.55, -0.265, PE.trim), 0),        // silver strip at the front
   ]);
+}
+
+/** Grey fabric with white flecks, like ANA's Premium Economy cover. */
+function speckleTexture() {
+  const n = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = n;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgb(170,172,176)';
+  g.fillRect(0, 0, n, n);
+  for (let i = 0; i < 1400; i++) {
+    const v = 200 + Math.random() * 55;
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.save();
+    g.translate(Math.random() * n, Math.random() * n);
+    g.rotate(Math.random() * Math.PI);
+    g.fillRect(-1.5, -0.6, 1 + Math.random() * 3, 1 + Math.random() * 1.2);
+    g.restore();
+  }
+  for (let i = 0; i < 2500; i++) {
+    const v = 120 + Math.random() * 30;
+    g.fillStyle = `rgb(${v},${v},${v + 4})`;
+    g.fillRect(Math.random() * n, Math.random() * n, 1, 1);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+/** Vertex-coloured material that applies its map only to parts tagged as fabric. */
+function fabricOnlyMaterial(map) {
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, map });
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float fab;\nvarying float vFab;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFab = fab;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vFab;')
+      .replace('#include <map_fragment>', `
+        #ifdef USE_MAP
+          vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+          diffuseColor.rgb *= mix( vec3( 1.0 ), sampledDiffuseColor.rgb, vFab );
+        #endif`);
+  };
+  m.customProgramCacheKey = () => 'fabric-only';
+  return m;
 }
 
 // ANA Business "THE Room": wide charcoal bench, grey frame, beige wood-grain panels.
@@ -280,7 +349,7 @@ export function buildCabin() {
     [21.8, 34.9, 0x3a3532],
     [34.9, 37.5, 0x8d9299],
     [37.5, 42.9, 0x3a3532],
-    [42.9, 46.6, 0x3f4a5a],   // Premium
+    [42.9, 46.6, 0x2c3a5c],   // Premium: navy speckled carpet
     [46.6, 50.0, 0x8d9299],
     [50.0, CABIN_Z1, 0x354562], // Economy
   ];
@@ -457,16 +526,17 @@ export function buildCabin() {
     Economy: economySeatGeometry(),
   };
   const proxySize = {
-    First: [0.8, 1.4, 0.8], Business: [0.75, 1.4, 0.8], Premium: [0.56, 1.3, 0.75], Economy: [0.457, 1.2, 0.6],
+    First: [0.8, 1.4, 0.8], Business: [0.75, 1.4, 0.8], Premium: [0.56, 1.4, 0.75], Economy: [0.457, 1.2, 0.6],
   };
   const fabricMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, map: noiseTexture(0xffffff, 0.12, 128) });
   const leatherMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42 });
-  clipMaterials.push(fabricMat, leatherMat);
+  const premiumMat = fabricOnlyMaterial(speckleTexture());
+  clipMaterials.push(fabricMat, leatherMat, premiumMat);
   const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
 
   for (const cabin of Object.keys(CLASSES)) {
     const list = specs.filter((s) => s.cabin === cabin);
-    const mat = fabricMat;
+    const mat = cabin === 'Premium' ? premiumMat : fabricMat;
     const mesh = new THREE.InstancedMesh(geoms[cabin], mat, list.length);
     mesh.name = `seats:${cabin}`;
     mesh.castShadow = true;
