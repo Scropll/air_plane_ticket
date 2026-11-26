@@ -572,7 +572,9 @@ if (deep.get('cam')) {
   camera.position.set(v[0], v[1], v[2]);
   controls.target.set(v[3], v[4], v[5]);
 }
-if (deep.get('look') === 'dusk') applyDusk();
+// the dusk look (the fly-through style) is the default; ?look=day for daylight
+if ((deep.get('look') || 'dusk') === 'dusk') applyDusk();
+document.body.classList.toggle('dusk', look === 'dusk');
 for (const a of document.querySelectorAll('[data-look]')) {
   a.setAttribute('aria-current', String(a.dataset.look === look));
 }

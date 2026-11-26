@@ -84,7 +84,7 @@ The paint is applied in the shader from object-space position, so it needs no UV
 
 ## Dusk look and fly-through
 
-`?look=dusk` (the **Dusk** switch in the panel) restyles the scene as a blue-hour drone shot.
+The site opens in the dusk look by default, styled as a blue-hour drone shot; `?look=day` (or the **Day** switch in the panel) gives daylight.
 The sun sits on the horizon, so the sky runs orange low and deep blue above. The clouds are
 lit pink and orange, a row of warm lamps lights the cabin, the windows glow, and the brightest
 lights get a soft glow.
