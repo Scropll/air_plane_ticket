@@ -1,18 +1,18 @@
 import * as THREE from 'three';
 import {
-  FLOOR_Y, INNER, WALL, CABIN_Z0, LAYOUT, section, cabinHalfWidth,
+  FLOOR_Y, INNER, WALL, CABIN_Z0, CABIN_Z1, LAYOUT, section, cabinHalfWidth,
 } from './dims.js';
-import { box, cyl, merge } from './geom.js';
+import { box, merge } from './geom.js';
 
 /**
- * Cabin classes. `code` is the IATA-style cabin code.
- * Colours are fabric/leather tones baked into the seat geometry.
+ * Cabin classes of the ANA Boeing 777-300ER (77W).
+ * `code` is the booking-cabin code; `accent` is only used by the UI.
  */
 export const CLASSES = {
-  Residence: { code: 'R', label: 'The Residence', accent: '#b8955a' },
-  First: { code: 'F', label: 'First', accent: '#a0714f' },
-  Premium: { code: 'W', label: 'Premium Economy', accent: '#5f7590' },
-  Economy: { code: 'Y', label: 'Economy', accent: '#33557f' },
+  First: { code: 'F', label: 'First', layout: '1-2-1 closed suites', accent: '#8a6a4d' },
+  Business: { code: 'J', label: 'Business', layout: '1-2-1 staggered', accent: '#4d5560' },
+  Premium: { code: 'W', label: 'Premium Economy', layout: '2-4-2', accent: '#5f7590' },
+  Economy: { code: 'Y', label: 'Economy', layout: '3-4-3', accent: '#2f4a6d' },
 };
 
 /**
@@ -21,12 +21,12 @@ export const CLASSES = {
  */
 export class Seat {
   constructor({ cabin, row, letter, position, x, z, yaw, pitch, width, mesh, instanceId, zone }) {
-    this.cabin = cabin;            // 'Residence' | 'First' | 'Premium' | 'Economy'
+    this.cabin = cabin;            // 'First' | 'Business' | 'Premium' | 'Economy'
     this.cabinCode = CLASSES[cabin].code;
     this.row = row;
     this.letter = letter;
     this.id = `${row}${letter}`;
-    this.position = position;      // 'window' | 'middle' | 'aisle' | 'centre' | 'sofa'
+    this.position = position;      // 'window' | 'middle' | 'aisle' | 'centre'
     this.zone = zone;
     this.floor = new THREE.Vector3(x, FLOOR_Y, z);
     this.yaw = yaw;                // rotation about +y; 0 faces the nose (-z)
@@ -37,9 +37,8 @@ export class Seat {
   }
   /** Seated eye point (world space, aircraft at rest). */
   eye() {
-    // seated eye point: a little behind the cushion centre, at head height
     const e = this.floor.clone().addScaledVector(this.facing(), -0.14);
-    e.y += this.cabin === 'Residence' ? 1.1 : 1.2;
+    e.y += 1.2;
     return e;
   }
   facing() {
@@ -56,12 +55,12 @@ export class Seat {
 
 // ---------------------------------------------------------------- palettes
 const C = {
-  leg: 0x4b4f55, plastic: 0x9aa0a8, screen: 0x0d1116, white: 0xf2f2ee,
-  econ: 0x2f4a6d, econDark: 0x243a57,
-  prem: 0x55657a, premDark: 0x3e4b5c,
-  firstLeather: 0xc9b08f, firstDark: 0x8a6a4d,
-  resLeather: 0xeadfca, resWood: 0x6e4a2f, gold: 0xc9a45c,
-  shell: 0xebe6dc, shellWood: 0x7a5636,
+  leg: 0x3d4146, plastic: 0x8e949b, screen: 0x0b0e12, white: 0xeeeeea, cover: 0xdcdfe3,
+  econ: 0x2b3f60, econDark: 0x223350,
+  prem: 0x3f4650, premDark: 0x31363e,
+  biz: 0x2f3237, bizDark: 0x24272b, bizShell: 0xe4dfd5, bizTop: 0x6b5a4a,
+  firstLeather: 0x5a463a, firstDark: 0x3b2e26,
+  shell: 0xe9e4da, wood: 0x6e4f36, trim: 0xb59a6a,
 };
 
 // Offsets a part so it sits on the rear face of a reclined backrest.
@@ -80,7 +79,7 @@ function economySeatGeometry() {
     box(0.04, 0.4, 0.42, -0.17, 0.2, 0.02, C.leg),
     box(0.43, 0.12, 0.47, 0, 0.44, -0.02, C.econ),
     box(0.43, 0.68, 0.09, ...back, C.econDark, th),
-    box(0.36, 0.15, 0.1, 0, 1.12, 0.3, 0xdfe2e6, th),
+    box(0.36, 0.15, 0.1, 0, 1.12, 0.3, C.cover, th),
     box(0.05, 0.05, 0.4, 0.215, 0.64, 0.02, C.plastic),
     box(0.05, 0.05, 0.4, -0.215, 0.64, 0.02, C.plastic),
     box(0.25, 0.16, 0.012, 0, sy, sz, C.screen, th),
@@ -93,13 +92,37 @@ function premiumSeatGeometry() {
   return merge([
     box(0.06, 0.38, 0.46, 0.19, 0.19, 0.03, C.leg),
     box(0.06, 0.38, 0.46, -0.19, 0.19, 0.03, C.leg),
-    box(0.46, 0.13, 0.5, 0, 0.45, -0.02, C.prem),
-    box(0.44, 0.28, 0.05, 0, 0.3, -0.3, C.premDark, -0.35),   // leg rest
-    box(0.46, 0.78, 0.1, ...back, C.premDark, th),
-    box(0.44, 0.22, 0.12, 0, 1.24, 0.35, C.white, th),        // winged headrest
-    box(0.08, 0.08, 0.46, 0.25, 0.66, 0.02, C.plastic),
-    box(0.08, 0.08, 0.46, -0.25, 0.66, 0.02, C.plastic),
-    box(0.32, 0.2, 0.012, 0, sy, sz, C.screen, th),
+    box(0.48, 0.13, 0.5, 0, 0.45, -0.02, C.prem),
+    box(0.46, 0.28, 0.05, 0, 0.3, -0.3, C.premDark, -0.35),   // leg rest
+    box(0.48, 0.8, 0.1, ...back, C.premDark, th),
+    box(0.42, 0.2, 0.12, 0, 1.25, 0.35, C.cover, th),         // winged headrest
+    box(0.08, 0.08, 0.48, 0.27, 0.66, 0.02, C.plastic),
+    box(0.08, 0.08, 0.48, -0.27, 0.66, 0.02, C.plastic),
+    box(0.3, 0.19, 0.012, 0, sy, sz, C.screen, th),
+  ]);
+}
+
+function businessSeatGeometry() {
+  return merge([
+    box(0.46, 0.3, 0.55, 0, 0.15, 0.02, C.bizDark),
+    box(0.54, 0.14, 0.6, 0, 0.42, -0.02, C.biz),
+    box(0.54, 0.88, 0.14, 0, 0.9, 0.3, C.biz, 0.16),
+    box(0.4, 0.18, 0.12, 0, 1.3, 0.37, C.cover, 0.16),
+    box(0.08, 0.12, 0.55, -0.31, 0.6, 0.02, C.bizDark),
+  ]);
+}
+
+/** Business pod furniture around a seat: side console on +x, ottoman, screen. */
+function businessPodGeometry(L) {
+  const front = -L + 0.55;
+  return merge([
+    box(0.95, 1.12, 0.05, 0.12, 0.56, 0.5, C.bizShell),               // shell behind the seat
+    box(0.3, 0.72, 1.3, 0.46, 0.36, -0.25, C.bizShell),               // side console
+    box(0.32, 0.025, 1.32, 0.46, 0.735, -0.25, C.bizTop),             // console top
+    box(0.04, 0.95, L - 0.05, -0.36, 0.475, (front + 0.5) / 2, C.bizShell), // privacy wall
+    box(0.66, 0.78, 0.05, 0.0, 0.39, front, C.bizShell),              // foot well front
+    box(0.48, 0.4, 0.42, 0, 0.2, front + 0.27, C.bizDark),            // ottoman
+    box(0.44, 0.27, 0.03, 0, 0.98, front + 0.02, C.screen),           // 17-inch screen
   ]);
 }
 
@@ -115,36 +138,49 @@ function firstSeatGeometry() {
   ]);
 }
 
-/** Sofa seat module for The Residence (origin = centre of the cushion). */
-function sofaSeatGeometry() {
-  return merge([
-    box(0.66, 0.24, 0.66, 0, 0.12, 0, C.resWood),
-    box(0.64, 0.2, 0.62, 0, 0.34, -0.02, C.resLeather),
-    box(0.64, 0.6, 0.18, 0, 0.72, 0.26, C.resLeather, 0.1),
-    box(0.4, 0.3, 0.12, 0, 0.62, 0.15, C.gold, 0.12),        // cushion
-  ]);
-}
-
-/** First-class suite shell: walls, sliding door on +x, monitor, ottoman. */
+/** First suite shell: walls, closed sliding door on +x, monitor, ottoman. */
 function suiteShellGeometry(L, W, H) {
   const t = 0.05, hl = L / 2, hw = W / 2;
-  const doorZ0 = -0.35, doorZ1 = 0.55;
+  const doorZ0 = -0.3, doorZ1 = 0.5;
   return merge([
     box(W, H, t, 0, H / 2, -hl, C.shell),                         // forward wall
-    box(W, H * 0.8, t, 0, (H * 0.8) / 2, hl, C.shell),            // aft wall (lower)
+    box(W, H, t, 0, H / 2, hl, C.shell),                          // aft wall
     box(t, H, L, -hw, H / 2, 0, C.shell),                          // -x wall
     box(t, H, doorZ0 + hl, hw, H / 2, (-hl + doorZ0) / 2, C.shell),
     box(t, H, hl - doorZ1, hw, H / 2, (doorZ1 + hl) / 2, C.shell),
-    box(0.03, H - 0.04, doorZ1 - doorZ0, hw + 0.035, H / 2, (doorZ0 + doorZ1) / 2, C.shellWood), // closed sliding door
-    box(W + 0.02, 0.03, 0.08, 0, H + 0.015, -hl, C.gold),         // top trims
-    box(0.08, 0.03, L, -hw, H + 0.015, 0, C.gold),
-    box(0.08, 0.03, L, hw, H + 0.015, 0, C.gold),
-    box(0.8, 0.48, 0.03, 0, 1.05, -hl + 0.04, C.screen),          // 32-inch screen
-    box(0.52, 0.42, 0.5, 0, 0.21, -0.55, C.firstDark),            // ottoman / bed extension
-    box(0.3, 0.62, 1.4, -hw + 0.18, 0.31, 0.1, C.shellWood),      // side console
-    box(0.32, 0.02, 1.4, -hw + 0.18, 0.63, 0.1, C.gold),
-    box(0.4, 0.03, 0.55, -hw + 0.38, 0.72, -0.35, C.shellWood),   // tray table
+    box(0.03, H - 0.04, doorZ1 - doorZ0, hw + 0.035, H / 2, (doorZ0 + doorZ1) / 2, C.wood), // closed door
+    box(W + 0.02, 0.03, 0.08, 0, H + 0.015, -hl, C.trim),         // top trims
+    box(W + 0.02, 0.03, 0.08, 0, H + 0.015, hl, C.trim),
+    box(0.08, 0.03, L, -hw, H + 0.015, 0, C.trim),
+    box(0.08, 0.03, L, hw, H + 0.015, 0, C.trim),
+    box(0.72, 0.42, 0.03, 0, 0.98, -hl + 0.04, C.screen),         // 23-inch screen
+    box(0.5, 0.42, 0.48, 0, 0.21, -0.52, C.firstDark),            // ottoman / bed extension
+    box(0.26, 0.62, 1.35, -hw + 0.16, 0.31, 0.12, C.wood),        // side console
+    box(0.28, 0.02, 1.35, -hw + 0.16, 0.63, 0.12, C.trim),
+    box(0.36, 0.03, 0.5, -hw + 0.34, 0.72, -0.3, C.wood),         // dining table
   ]);
+}
+
+// ---------------------------------------------------------------- textures
+function noiseTexture(base, amp, scale = 256) {
+  const c = document.createElement('canvas');
+  c.width = c.height = scale;
+  const g = c.getContext('2d');
+  const img = g.createImageData(scale, scale);
+  const b = new THREE.Color(base);
+  for (let i = 0; i < scale * scale; i++) {
+    const n = (Math.random() - 0.5) * amp + Math.sin(i * 0.7) * amp * 0.08;
+    img.data[i * 4] = Math.max(0, Math.min(255, b.r * 255 * (1 + n)));
+    img.data[i * 4 + 1] = Math.max(0, Math.min(255, b.g * 255 * (1 + n)));
+    img.data[i * 4 + 2] = Math.max(0, Math.min(255, b.b * 255 * (1 + n)));
+    img.data[i * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
 }
 
 // ---------------------------------------------------------------------------
@@ -160,26 +196,34 @@ export function buildCabin() {
   };
 
   // ---------------------------------------------------------------- sidewall
-  const inner = innerShell(CABIN_Z0, 60.6, 56);
-  const innerMat = new THREE.MeshStandardMaterial({ color: 0xf1eee8, roughness: 0.9, side: THREE.DoubleSide });
+  const innerMat = new THREE.MeshStandardMaterial({ color: 0xefece6, roughness: 0.9, side: THREE.DoubleSide });
   clipMaterials.push(innerMat);
-  const innerMesh = new THREE.Mesh(inner, innerMat);
+  const innerMesh = new THREE.Mesh(innerShell(CABIN_Z0, CABIN_Z1, 56), innerMat);
   innerMesh.receiveShadow = true;
   group.add(innerMesh);
+  // aft pressure bulkhead
+  const aft = section(CABIN_Z1);
+  const bulk = new THREE.Mesh(new THREE.CircleGeometry(aft.r - WALL, 48), innerMat);
+  bulk.position.set(0, aft.yc, CABIN_Z1);
+  group.add(bulk);
 
   // ---------------------------------------------------------------- floors
+  const carpet = noiseTexture(0xffffff, 0.22);
   const floorZones = [
-    [3.0, CABIN_Z0, 0x3a3f46],
-    [CABIN_Z0, LAYOUT.residence.z0, 0x8a8f96],
-    [LAYOUT.residence.z0, LAYOUT.residence.z1 + 0.1, 0xc9b79c],
-    [LAYOUT.residence.z1 + 0.1, 17.3, 0x6d5a4d],
-    [17.3, 20.4, 0x8a8f96],
-    [20.4, 26.2, 0x4a5568],
-    [26.2, 29.4, 0x8a8f96],
-    [29.4, 60.4, 0x34465e],
+    [3.0, CABIN_Z0, 0x30343a],
+    [CABIN_Z0, 10.4, 0x8d9299],
+    [10.4, 14.5, 0x5a5048],   // First
+    [14.5, 17.6, 0x41474f],   // Business
+    [17.6, 21.8, 0x8d9299],
+    [21.8, 34.9, 0x41474f],
+    [34.9, 37.5, 0x8d9299],
+    [37.5, 42.9, 0x41474f],
+    [42.9, 46.6, 0x3f4a5a],   // Premium
+    [46.6, 50.0, 0x8d9299],
+    [50.0, CABIN_Z1, 0x354562], // Economy
   ];
   for (const [z0, z1, color] of floorZones) {
-    const m = new THREE.MeshStandardMaterial({ color, roughness: 0.95 });
+    const m = new THREE.MeshStandardMaterial({ color, map: carpet, roughness: 0.97 });
     clipMaterials.push(m);
     const f = new THREE.Mesh(floorStrip(z0, z1), m);
     f.receiveShadow = true;
@@ -192,8 +236,8 @@ export function buildCabin() {
   const fdParts = [
     box(panelW, 0.95, 0.5, 0, 0.47, 3.15, 0x2b2f35),
     box(panelW - 0.2, 0.06, 0.55, 0, 1.0, 3.2, 0x1a1d21),
-    box(0.5, 0.32, 0.9, 0, 0.5, 3.8, 0x2b2f35), // pedestal
-    box(2 * cabinHalfWidth(CABIN_Z0, FLOOR_Y + 1.0), 2.1, 0.08, 0, 1.05, CABIN_Z0 - 0.04, 0xd8d4cc), // bulkhead
+    box(0.5, 0.32, 0.9, 0, 0.5, 3.8, 0x2b2f35),
+    box(2 * cabinHalfWidth(CABIN_Z0, FLOOR_Y + 1.0), 2.1, 0.08, 0, 1.05, CABIN_Z0 - 0.04, 0xd8d4cc),
   ];
   for (const x of [-0.6, 0.6]) {
     fdParts.push(box(0.5, 0.5, 0.55, x, 0.25, 4.25, 0x30343a));
@@ -208,10 +252,15 @@ export function buildCabin() {
   const monParts = [];
   const labels = [];
   for (const [z0, z1, x0, x1, label] of LAYOUT.monuments) {
-    const h = 2.05;
-    const col = label === 'Lav' ? 0xe3e6ea : label === 'Closet' ? 0xd9d2c5 : 0xd3d8de;
+    const h = label === 'Bar' ? 1.1 : 2.05;
+    const col = label === 'Lav' ? 0xe3e6ea : label === 'Closet' ? 0xd9d2c5 : label === 'Bar' ? 0x8a6a4d : 0xd3d8de;
     monParts.push(box(x1 - x0, h, z1 - z0, (x0 + x1) / 2, h / 2, (z0 + z1) / 2, col));
-    monParts.push(box(x1 - x0 - 0.1, 0.02, z1 - z0 - 0.1, (x0 + x1) / 2, 1.0, (z0 + z1) / 2, 0xa9b0b8));
+    if (label === 'Bar') monParts.push(box(x1 - x0 + 0.04, 0.03, z1 - z0 + 0.04, (x0 + x1) / 2, h + 0.015, (z0 + z1) / 2, C.trim));
+    else if (label === 'Lav') {
+      // basin + WC seen from above
+      monParts.push(box(0.36, 0.05, 0.3, (x0 + x1) / 2, 1.0, z0 + 0.3, 0xf4f4f2));
+      monParts.push(box(0.36, 0.42, 0.5, (x0 + x1) / 2, 0.21, z1 - 0.4, 0xf4f4f2));
+    } else monParts.push(box(x1 - x0 - 0.1, 0.02, z1 - z0 - 0.1, (x0 + x1) / 2, 1.0, (z0 + z1) / 2, 0xa9b0b8));
     labels.push({ text: label, pos: new THREE.Vector3((x0 + x1) / 2, FLOOR_Y + 1.7, (z0 + z1) / 2), small: true });
   }
   const monuments = new THREE.Mesh(merge(monParts), vmat({ side: THREE.DoubleSide }));
@@ -219,23 +268,10 @@ export function buildCabin() {
   monuments.castShadow = true; monuments.receiveShadow = true;
   group.add(monuments);
 
-  // ---------------------------------------------------------------- residence
-  const res = buildResidence();
-  const resWalls = new THREE.Mesh(res.walls, vmat({ side: THREE.DoubleSide, roughness: 0.6 }));
-  const resFurn = new THREE.Mesh(res.furniture, vmat({ roughness: 0.55 }));
-  const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0xcfe4ee, roughness: 0.05, transmission: 0.0, transparent: true, opacity: 0.35, side: THREE.DoubleSide,
-  });
-  clipMaterials.push(glassMat);
-  const resGlass = new THREE.Mesh(res.glass, glassMat);
-  for (const m of [resWalls, resFurn, resGlass]) {
-    m.position.y = FLOOR_Y; m.castShadow = m !== resGlass; m.receiveShadow = true; group.add(m);
-  }
-
   // ---------------------------------------------------------------- bins & mood lighting
   const binParts = [];
   const moodParts = [];
-  const binRuns = [[20.45, 26.15], [29.45, 43.6], [46.1, 57.1]];
+  const binRuns = [[14.5, 17.6], [21.8, 34.8], [37.5, 46.5], [50.1, 60.6]];
   for (const [z0, z1] of binRuns) {
     const len = z1 - z0, zc = (z0 + z1) / 2;
     for (const s of [-1, 1]) {
@@ -249,13 +285,83 @@ export function buildCabin() {
   bins.position.y = FLOOR_Y;
   bins.castShadow = true;
   group.add(bins);
-  const moodMat = new THREE.MeshBasicMaterial({ color: 0x9fb8ff, toneMapped: false });
+  const moodMat = new THREE.MeshBasicMaterial({ color: 0xa9c0ff, toneMapped: false });
   clipMaterials.push(moodMat);
   const mood = new THREE.Mesh(merge(moodParts), moodMat);
   mood.position.y = FLOOR_Y;
   group.add(mood);
 
-  // ---------------------------------------------------------------- seats
+  // ---------------------------------------------------------------- seat specs
+  const specs = [];
+  const furniture = []; // { geom: 'suite' | 'pod', x, z, mirror }
+
+  const F = LAYOUT.first;
+  for (const { row, z } of F.rows) {
+    for (const c of F.cols) {
+      furniture.push({ kind: 'suite', x: c.x, z, mirror: c.doorSide < 0 });
+      specs.push({
+        cabin: 'First', row, letter: c.letter, position: c.position,
+        x: c.x, z: z + 0.32, yaw: 0, pitch: F.suiteLength, width: F.suiteWidth, zone: `Suite ${row}${c.letter}`,
+      });
+    }
+  }
+
+  const B = LAYOUT.business;
+  B.blocks.forEach((block, bi) => {
+    for (const { row, z } of block) {
+      const cols = row % 2 ? B.odd : B.even;
+      for (const c of cols) {
+        furniture.push({ kind: 'pod', x: c.x, z, mirror: c.console < 0 });
+        specs.push({
+          cabin: 'Business', row, letter: c.letter, position: c.position,
+          x: c.x, z, yaw: 0, pitch: B.podLength, width: B.seatWidth,
+          zone: ['Business (forward)', 'Business (mid)', 'Business (aft)'][bi],
+        });
+      }
+    }
+  });
+
+  const rowsOf = (groups, seatWidth, aisle) => {
+    const total = groups.reduce((s, g) => s + g.length * seatWidth, 0) + aisle * (groups.length - 1);
+    let x = -total / 2;
+    const out = [];
+    groups.forEach((g, gi) => {
+      g.forEach((letter, i) => {
+        let position = 'middle';
+        if ((gi === 0 && i === 0) || (gi === groups.length - 1 && i === g.length - 1)) position = 'window';
+        else if ((gi > 0 && i === 0) || (gi < groups.length - 1 && i === g.length - 1)) position = 'aisle';
+        out.push({ letter, x: x + (i + 0.5) * seatWidth, position });
+      });
+      x += g.length * seatWidth + aisle;
+    });
+    return out;
+  };
+
+  const P = LAYOUT.premium;
+  const pCols = rowsOf(P.groups, P.seatWidth, P.aisle);
+  for (const { row, z } of P.rows) {
+    for (const c of pCols) specs.push({ cabin: 'Premium', row, ...c, z, yaw: 0, pitch: 1.0, width: P.seatWidth, zone: 'Premium Economy' });
+  }
+
+  const E = LAYOUT.economy;
+  const eCols = rowsOf(E.groups, E.seatWidth, E.aisle);
+  const at = (L) => eCols.find((c) => c.letter === L);
+  for (const { row, z } of E.rows) {
+    let cols;
+    if (row <= 38) cols = eCols;
+    else {
+      // the fuselage tapers: the outer seats drop and the pairs re-letter
+      const centre = eCols.filter((c) => 'DEFG'.includes(c.letter));
+      const left = [{ ...at('B'), letter: 'A', position: 'window' }, { ...at('C'), letter: 'C', position: 'aisle' }];
+      const right = [{ ...at('H'), letter: 'H', position: 'aisle' }, { ...at('J'), letter: 'K', position: 'window' }];
+      cols = row <= 41 ? [...left, ...centre, ...right] : left;
+    }
+    for (const c of cols) {
+      specs.push({ cabin: 'Economy', row, ...c, z, yaw: 0, pitch: E.pitch, width: E.seatWidth, zone: row <= 38 ? 'Economy' : 'Economy (aft taper)' });
+    }
+  }
+
+  // ---------------------------------------------------------------- seat instances
   const seats = [];
   const classMeshes = {};
   const proxies = [];
@@ -264,74 +370,23 @@ export function buildCabin() {
   const up = new THREE.Vector3(0, 1, 0);
   const one = new THREE.Vector3(1, 1, 1);
 
-  const specs = [];
-  // The Residence: a two-seat sofa (certified for taxi, take-off and landing)
-  specs.push({ cabin: 'Residence', row: 1, letter: 'A', position: 'sofa', x: -2.38, z: 9.12, yaw: -Math.PI / 2, pitch: 5.2, width: 0.66, zone: 'Living room' });
-  specs.push({ cabin: 'Residence', row: 1, letter: 'B', position: 'sofa', x: -2.38, z: 9.78, yaw: -Math.PI / 2, pitch: 5.2, width: 0.66, zone: 'Living room' });
-
-  // First: six closed suites, 1-1-1, rows 2 and 3
-  const F = LAYOUT.first;
-  const suiteCentres = [];
-  F.rows.forEach((row, ri) => {
-    const zc = F.z0 + F.suiteLength / 2 + ri * (F.suiteLength + 0.05);
-    F.letters.forEach((letter, li) => {
-      const x = F.x[li];
-      suiteCentres.push({ x, z: zc, mirror: li > 0 });
-      specs.push({
-        cabin: 'First', row, letter, position: li === 1 ? 'centre' : 'window',
-        x, z: zc + 0.35, yaw: 0, pitch: F.suiteLength, width: F.suiteWidth, zone: `Suite ${row}${letter}`,
-      });
-    });
-  });
-
-  // Premium 2-3-2 and Economy 3-4-3
-  const rowsOf = (groups, seatWidth, aisle) => {
-    const total = groups.reduce((s, g) => s + g.length * seatWidth, 0) + aisle * (groups.length - 1);
-    let x = -total / 2;
-    const out = [];
-    groups.forEach((g, gi) => {
-      g.forEach((letter, i) => {
-        let position = 'middle';
-        const outer = gi === 0 || gi === groups.length - 1;
-        if (outer && ((gi === 0 && i === 0) || (gi === groups.length - 1 && i === g.length - 1))) position = 'window';
-        else if ((gi > 0 && i === 0) || (gi < groups.length - 1 && i === g.length - 1)) position = 'aisle';
-        out.push({ letter, x: x + (i + 0.5) * seatWidth, position });
-      });
-      x += g.length * seatWidth + aisle;
-    });
-    return out;
-  };
-  const P = LAYOUT.premium;
-  const pCols = rowsOf(P.groups, P.seatWidth, P.aisle);
-  P.rows.forEach((row, i) => {
-    for (const c of pCols) specs.push({ cabin: 'Premium', row, ...c, z: P.z0 + i * P.pitch, yaw: 0, pitch: P.pitch, width: P.seatWidth, zone: 'Premium Economy' });
-  });
-  const E = LAYOUT.economy;
-  const eCols = rowsOf(E.groups, E.seatWidth, E.aisle);
-  E.sections.forEach((sec, si) => {
-    for (let row = sec.rows[0]; row <= sec.rows[1]; row++) {
-      const z = sec.z0 + (row - sec.rows[0]) * E.pitch;
-      for (const c of eCols) specs.push({ cabin: 'Economy', row, ...c, z, yaw: 0, pitch: E.pitch, width: E.seatWidth, zone: si === 0 ? 'Economy (forward)' : 'Economy (aft)' });
-    }
-  });
-
   const geoms = {
-    Residence: sofaSeatGeometry(),
     First: firstSeatGeometry(),
+    Business: businessSeatGeometry(),
     Premium: premiumSeatGeometry(),
     Economy: economySeatGeometry(),
   };
   const proxySize = {
-    Residence: [0.66, 1.0, 0.7], First: [0.8, 1.4, 0.8], Premium: [0.5, 1.3, 0.75], Economy: [0.457, 1.2, 0.6],
+    First: [0.8, 1.4, 0.8], Business: [0.6, 1.4, 0.8], Premium: [0.56, 1.3, 0.75], Economy: [0.457, 1.2, 0.6],
   };
-  const seatMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 });
+  const fabricMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, map: noiseTexture(0xffffff, 0.12, 128) });
   const leatherMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42 });
-  clipMaterials.push(seatMat, leatherMat);
+  clipMaterials.push(fabricMat, leatherMat);
   const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
 
   for (const cabin of Object.keys(CLASSES)) {
     const list = specs.filter((s) => s.cabin === cabin);
-    const mat = cabin === 'Residence' || cabin === 'First' ? leatherMat : seatMat;
+    const mat = cabin === 'First' || cabin === 'Business' ? leatherMat : fabricMat;
     const mesh = new THREE.InstancedMesh(geoms[cabin], mat, list.length);
     mesh.name = `seats:${cabin}`;
     mesh.castShadow = true;
@@ -363,30 +418,33 @@ export function buildCabin() {
     proxies.push(proxy);
   }
 
-  // First-class suite shells: one instance per suite, mirrored so every door
-  // opens onto an aisle.
-  const shellGeom = suiteShellGeometry(F.suiteLength, F.suiteWidth, F.wallHeight);
-  const shellMat = vmat({ side: THREE.DoubleSide, roughness: 0.5 });
-  const shells = new THREE.InstancedMesh(shellGeom, shellMat, suiteCentres.length);
-  shells.name = 'first-suite-shells';
-  suiteCentres.forEach((s, i) => {
-    tmpM.compose(new THREE.Vector3(s.x, FLOOR_Y, s.z), new THREE.Quaternion(), new THREE.Vector3(s.mirror ? -1 : 1, 1, 1));
-    shells.setMatrixAt(i, tmpM);
-  });
-  shells.castShadow = true; shells.receiveShadow = true;
-  shells.computeBoundingSphere();
-  group.add(shells);
+  // Suite shells and business pods: instanced, mirrored so every First door
+  // opens onto an aisle and every Business console sits on the right side.
+  const furnMat = vmat({ side: THREE.DoubleSide, roughness: 0.55 });
+  for (const [kind, geom] of [
+    ['suite', suiteShellGeometry(F.suiteLength, F.suiteWidth, F.wallHeight)],
+    ['pod', businessPodGeometry(B.podLength)],
+  ]) {
+    const list = furniture.filter((f) => f.kind === kind);
+    const m = new THREE.InstancedMesh(geom, furnMat, list.length);
+    m.name = kind === 'suite' ? 'first-suite-shells' : 'business-pods';
+    list.forEach((f, i) => {
+      tmpM.compose(new THREE.Vector3(f.x, FLOOR_Y, f.z), new THREE.Quaternion(), new THREE.Vector3(f.mirror ? -1 : 1, 1, 1));
+      m.setMatrixAt(i, tmpM);
+    });
+    m.castShadow = true; m.receiveShadow = true;
+    m.computeBoundingSphere();
+    group.add(m);
+  }
 
   // ---------------------------------------------------------------- zone labels
   const zoneLabels = [
-    { text: 'The Residence', pos: new THREE.Vector3(-0.4, FLOOR_Y + 2.2, 10.2), cls: 'Residence' },
-    { text: 'First · 1-1-1', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 15.1), cls: 'First' },
-    { text: 'Premium · 2-3-2', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 23.3), cls: 'Premium' },
-    { text: 'Economy · 3-4-3', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 36.5), cls: 'Economy' },
-    { text: 'Economy · 3-4-3', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 51.5), cls: 'Economy' },
-    { text: 'Living room', pos: new THREE.Vector3(-1.0, FLOOR_Y + 1.6, 8.6), small: true },
-    { text: 'Bedroom', pos: new THREE.Vector3(-1.4, FLOOR_Y + 1.6, 11.6), small: true },
-    { text: 'Shower', pos: new THREE.Vector3(1.05, FLOOR_Y + 1.6, 11.6), small: true },
+    { text: 'First · 1-2-1', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 12.4), cls: 'First' },
+    { text: 'Business · 1-2-1', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 16.1), cls: 'Business' },
+    { text: 'Business · 1-2-1', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 28.0), cls: 'Business' },
+    { text: 'Business · 1-2-1', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 40.2), cls: 'Business' },
+    { text: 'Premium · 2-4-2', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 44.9), cls: 'Premium' },
+    { text: 'Economy · 3-4-3', pos: new THREE.Vector3(0, FLOOR_Y + 2.2, 55.5), cls: 'Economy' },
     { text: 'Flight deck', pos: new THREE.Vector3(0, FLOOR_Y + 1.6, 3.6), small: true },
   ];
 
@@ -395,76 +453,14 @@ export function buildCabin() {
 
 // ---------------------------------------------------------------------------
 
-function buildResidence() {
-  const R = LAYOUT.residence;
-  const H = 2.05, t = 0.06;
-  const xL = -2.8, xR = R.aisleX;
-  const W = [];
-  const wall = (x0, x1, z0, z1, h = H, color = C.shell) =>
-    W.push(box(Math.max(t, x1 - x0), h, Math.max(t, z1 - z0), (x0 + x1) / 2, h / 2, (z0 + z1) / 2, color));
-
-  // outer envelope
-  wall(xL, xR, R.z0 - t / 2, R.z0 + t / 2);                     // forward wall
-  wall(xL, xR, R.z1 - t / 2, R.z1 + t / 2);                     // aft wall
-  wall(xR - t / 2, xR + t / 2, R.z0, 8.0);                       // aisle wall, entry door 8.0–8.8
-  wall(xR - t / 2, xR + t / 2, 8.8, R.z1);
-  W.push(box(0.035, H - 0.06, 0.8, xR + 0.05, H / 2, 8.4, C.resWood)); // entry door (closed)
-  // living | bedroom/bath partition, bedroom door x -0.9..-0.2
-  wall(xL, -0.9, R.split - t / 2, R.split + t / 2);
-  wall(-0.2, xR, R.split - t / 2, R.split + t / 2);
-  W.push(box(0.7, H - 0.06, 0.035, -0.55, H / 2, R.split - 0.05, C.resWood));
-  // bedroom | shower partition, door z 11.9..12.6
-  wall(0.1 - t / 2, 0.1 + t / 2, R.split, 11.9);
-  wall(0.1 - t / 2, 0.1 + t / 2, 12.6, R.z1);
-  W.push(box(0.035, H - 0.06, 0.7, 0.05, H / 2, 12.25, C.resWood));
-  // gold top trims
-  W.push(box(xR - xL, 0.03, 0.09, (xL + xR) / 2, H + 0.015, R.z0, C.gold));
-  W.push(box(xR - xL, 0.03, 0.09, (xL + xR) / 2, H + 0.015, R.z1, C.gold));
-  W.push(box(0.09, 0.03, R.z1 - R.z0, xR, H + 0.015, (R.z0 + R.z1) / 2, C.gold));
-  W.push(box(xR - xL, 0.03, 0.09, (xL + xR) / 2, H + 0.015, R.split, C.gold));
-
-  const F = [];
-  // living room: sofa frame (seats are instances), coffee table, TV, sideboard
-  F.push(box(0.75, 0.62, 0.1, -2.42, 0.31, 8.74, C.resWood));        // sofa arms
-  F.push(box(0.75, 0.62, 0.1, -2.42, 0.31, 10.16, C.resWood));
-  F.push(box(0.12, 0.85, 1.52, -2.76, 0.42, 9.45, C.resWood));       // sofa back panel
-  F.push(box(0.6, 0.04, 0.9, -1.45, 0.42, 9.45, C.resWood));         // coffee table top
-  F.push(box(0.5, 0.38, 0.8, -1.45, 0.2, 9.45, C.firstDark));
-  F.push(box(0.04, 0.68, 1.15, R.aisleX - 0.06, 1.25, 9.45, C.screen)); // 32" TV
-  F.push(box(0.06, 0.74, 1.21, R.aisleX - 0.03, 1.25, 9.45, C.gold));
-  F.push(box(2.2, 0.8, 0.34, -0.7, 0.4, R.z0 + 0.2, C.resWood));     // sideboard / bar
-  F.push(box(2.2, 0.03, 0.36, -0.7, 0.815, R.z0 + 0.2, C.gold));
-  F.push(cyl(0.3, 0.3, 0.42, 0.45, 0.21, 9.9, C.resLeather, 20));    // ottoman
-  // bedroom: double bed 2.0 x 1.3
-  F.push(box(1.32, 0.34, 2.0, -2.0, 0.17, 11.5, C.resWood));
-  F.push(box(1.26, 0.2, 1.94, -2.0, 0.44, 11.52, C.white));
-  F.push(box(1.24, 0.06, 1.2, -2.0, 0.56, 11.9, 0xb7a27e));          // throw
-  F.push(box(0.5, 0.12, 0.3, -2.3, 0.6, 10.7, C.white));
-  F.push(box(0.5, 0.12, 0.3, -1.7, 0.6, 10.7, C.white));
-  F.push(box(1.4, 1.0, 0.08, -2.0, 0.6, R.split + 0.08, C.resLeather)); // headboard
-  F.push(box(0.4, 0.5, 0.4, -1.05, 0.25, 10.68, C.resWood));          // nightstand
-  // shower room
-  F.push(box(1.84, 0.012, 2.34, 1.05, 0.006, 11.6, 0x9aa7ad));       // stone floor
-  F.push(box(1.0, 0.85, 0.5, 0.75, 0.42, R.split + 0.3, C.resWood)); // vanity
-  F.push(box(0.9, 0.04, 0.52, 0.75, 0.86, R.split + 0.3, C.white));
-  F.push(box(0.8, 0.6, 0.02, 0.75, 1.35, R.split + 0.06, 0xb9c7cf)); // mirror
-  F.push(box(0.4, 0.4, 0.55, 1.65, 0.2, 11.1, C.white));             // WC
-  F.push(box(0.85, 0.05, 0.85, 1.5, 0.025, 12.3, 0xd6dde0));          // shower tray
-
-  const G = [
-    box(0.02, 2.0, 0.9, 1.06, 1.0, 12.3, 0xffffff),                  // shower glass
-    box(0.88, 2.0, 0.02, 1.5, 1.0, 11.84, 0xffffff),
-  ];
-  return { walls: merge(W), furniture: merge(F), glass: merge(G) };
-}
-
 function floorStrip(z0, z1) {
-  const pos = [], idx = [];
+  const pos = [], idx = [], uv = [];
   const n = Math.max(2, Math.ceil((z1 - z0) / 0.5));
   for (let i = 0; i <= n; i++) {
     const z = z0 + (z1 - z0) * (i / n);
     const hw = cabinHalfWidth(z, FLOOR_Y);
     pos.push(-hw, FLOOR_Y, z, hw, FLOOR_Y, z);
+    uv.push(-hw / 1.5, z / 1.5, hw / 1.5, z / 1.5);
   }
   for (let i = 0; i < n; i++) {
     const a = i * 2;
@@ -472,6 +468,7 @@ function floorStrip(z0, z1) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx);
   g.computeVertexNormals();
   // ensure normals point up
