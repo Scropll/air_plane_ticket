@@ -6,6 +6,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { buildAircraft, buildGlassRoof } from './aircraft.js';
 import { buildCabin, CLASSES } from './cabin.js';
 import { CloudSea } from './clouds.js';
@@ -107,6 +108,37 @@ gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.5, thickness: 2, scal
 gtao.blendIntensity = 0.9;
 composer.addPass(gtao);
 composer.addPass(new OutputPass());
+
+// camera finish for the aerial view: slight lens fringing, vignette, a gentle
+// grade (cool shadows, warm highlights) and fine film grain
+const photoFinish = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes; varying vec2 vUv;
+    float hash(vec2 p){ p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
+    void main(){
+      vec2 c = vUv - 0.5;
+      vec2 aspect = vec2(uRes.x / uRes.y, 1.0);
+      float r = length(c * aspect);
+      vec2 off = c * 0.0016 * r;
+      vec3 col;
+      col.r = texture2D(tDiffuse, vUv - off).r;
+      col.g = texture2D(tDiffuse, vUv).g;
+      col.b = texture2D(tDiffuse, vUv + off).b;
+      float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = mix(col, col * vec3(0.96, 0.99, 1.05), 1.0 - smoothstep(0.0, 0.5, l));
+      col = mix(col, col * vec3(1.03, 1.0, 0.96), smoothstep(0.55, 1.0, l));
+      col = mix(vec3(l), col, 1.06);                       // a touch more saturation
+      col = col * col * (3.0 - 2.0 * col) * 0.18 + col * 0.82; // soft S-curve
+      col *= mix(1.0, smoothstep(1.05, 0.25, r), 0.28);   // vignette
+      float g = hash(vUv * uRes + fract(uTime) * 91.7) - 0.5;
+      col += g * 0.028 * (1.0 - l * 0.6);                  // grain, stronger in shadows
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    }`,
+});
+composer.addPass(photoFinish);
+photoFinish.uniforms.uRes.value.set(window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio());
 
 // ------------------------------------------------------------------ labels
 const labelObjects = [];
@@ -411,6 +443,7 @@ function frame() {
   sun.target.position.copy(c);
 
   clouds.update(dt, camera, bob);
+  photoFinish.uniforms.uTime.value = elapsed;
   if (mode === 'photo') composer.render(dt);
   else renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
@@ -423,6 +456,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
+  photoFinish.uniforms.uRes.value.set(window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio());
   if (mode === 'photo') framePhoto();
 });
 
