@@ -66,6 +66,23 @@ straight-down aerial frame with no UI or labels.
   frame, the crown is replaced by clear glass, and ambient occlusion is applied. There are no labels.
 - **Seat**: eye height in the selected seat. Drag to look around.
 
+## Dusk look and fly-through
+
+`?look=dusk` (the **Dusk** switch in the panel) restyles the scene as a blue-hour drone shot.
+The sun sits on the horizon, so the sky runs orange low and deep blue above. The clouds are
+lit pink and orange, a row of warm lamps lights the cabin, the windows glow, and the brightest
+lights get a soft glow.
+
+`?film&look=dusk&clean` turns the page into a deterministic 8-second, 24 fps shot. It starts
+wide on the airliner and pushes in over the First and Business cabins. Then it rises in a
+turning diagonal to the straight-down glass-roof view. `window.film.render(i)` renders frame
+`i` (call it in order, from 0 to 191) and returns it as a JPEG data URL, so the frames can be
+captured headlessly and joined with ffmpeg:
+
+```bash
+ffmpeg -framerate 24 -i f%04d.jpg -c:v libx264 -crf 17 -pix_fmt yuv420p flythrough.mp4
+```
+
 ## Files
 
 - `src/dims.js`: the fuselage profile, cabin stations and layout constants
