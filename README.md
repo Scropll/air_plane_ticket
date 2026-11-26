@@ -5,6 +5,11 @@ a sea of clouds that scrolls forever. The cabin follows the ANA 777-300ER (77W) 
 map in real metres, and every seat is one instance in an `InstancedMesh` that knows
 its class, row and letter.
 
+[![Dusk fly-through](media/flythrough-poster.jpg)](media/ana-77w-dusk-flythrough.mp4)
+
+[Watch the dusk fly-through](media/ana-77w-dusk-flythrough.mp4) (8 s, 1600 × 900, 24 fps): wide on the
+airliner, a push-in over the First and Business cabins, then a rise to the top-down glass-roof view.
+
 ## Run
 
 It's a static page: no build step. Three.js r170 loads from jsDelivr via an import map.
